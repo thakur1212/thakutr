@@ -1,0 +1,46 @@
+name: Parallel Multi-Bot Runners
+
+on:
+  repository_dispatch:
+    types: [trigger_runners]
+
+jobs:
+  run-bots:
+    runs-on: ubuntu-latest
+    strategy:
+      # matrix [1 से 20] का मतलब है GitHub एक साथ 20 अलग-अलग वर्चुअल मशीनें चालू करेगा!
+      matrix:
+        machine_id: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]
+    
+    steps:
+    - name: Code Checkout
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.10'
+
+    - name: Install Google Chrome & Dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y wget curl unzip libxi6 libgconf-2-4 libnss3 x1600 xvfb
+        # असली Google Chrome डाउनलोड और इंस्टॉल करना
+        wget https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
+        sudo dpkg -i google-chrome-stable_current_amd64.deb || sudo apt-get install -f -y
+
+    - name: Install Python Libraries
+      run: |
+        pip install playwright requests
+        playwright install
+
+    - name: Run Python Bot inside Virtual Screen (Xvfb)
+      env:
+        URL: ${{ github.event.client_payload.target_url }}
+        VIEWS: ${{ github.event.client_payload.target_views }}
+        CHAT_ID: ${{ github.event.client_payload.chat_id }}
+        TOKEN: ${{ github.event.client_payload.bot_token }}
+        MID: ${{ matrix.machine_id }}
+      run: |
+        # Xvfb वर्चुअल डिस्प्ले स्क्रीन चालू करता है ताकि 'headless: false' (असली क्रोम विजुअल) काम कर सके
+        xvfb-run --server-args="-screen 0 1280x720x24" python runner.py "$URL" "$VIEWS" "$CHAT_ID" "$TOKEN" "$MID"
