@@ -24,14 +24,13 @@ jobs:
     - name: Install System Dependencies
       run: |
         sudo apt-get update
-        # सिर्फ स्क्रीन चलाने और बुनियादी ग्राफ़िक्स के लिए ज़रूरी पैकेजेस
         sudo apt-get install -y xvfb libxi6 libgconf-2-4 libnss3
 
-    - name: Install Playwright and Stable Chrome
+    - name: Install Playwright and Dependencies
       run: |
         pip install playwright requests
-        # प्लेराइट को खुद उसका पूरा डिपेंडेंसी और स्टेबल क्रोम डाउनलोड करने के लिए बोलना
-        python -m playwright install --with-deps chrome
+        # प्लेराइट के डिफ़ॉल्ट ब्राउज़र को उसके ज़रूरी सिस्टम पैकेजेस के साथ इंस्टॉल करना
+        python -m playwright install --with-deps chromium
 
     - name: Run Python Bot inside Virtual Screen (Xvfb)
       env:
@@ -39,6 +38,7 @@ jobs:
         VIEWS: ${{ github.event.client_payload.target_views }}
         CHAT_ID: ${{ github.event.client_payload.chat_id }}
         TOKEN: ${{ github.event.client_payload.bot_token }}
-        MID: ${{ matrix.matrix.machine_id }}
+        MID: ${{ matrix.machine_id }}
       run: |
+        # यहाँ MID को बिल्कुल सही सेट कर दिया गया है
         xvfb-run --server-args="-screen 0 1280x720x24" python runner.py "$URL" "$VIEWS" "$CHAT_ID" "$TOKEN" "$MID"
