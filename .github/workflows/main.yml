@@ -1,4 +1,4 @@
-name: Parallel Multi-Bot Runners (Tor Network Bypass)
+name: Parallel Multi-Bot Runners (Anti-Bot + IP Tracking)
 
 on:
   repository_dispatch:
@@ -24,19 +24,16 @@ jobs:
     - name: Install Tor Network & Xvfb (Virtual Screen)
       run: |
         sudo apt-get update
-        # 🟢 Xvfb और असली Tor Service इंस्टॉल कर रहे हैं
         sudo apt-get install -y xvfb tor
-        
-        # 🟢 Tor सर्विस को स्टार्ट कर रहे हैं
         sudo service tor start
         echo "Tor नेटवर्क से कनेक्ट हो रहा है..."
-        sleep 15  # Tor को कनेक्ट होने के लिए 15 सेकंड का समय
+        sleep 15
 
-    - name: Install Playwright & Dependencies
+    - name: Install Playwright, Stealth & PySocks
       run: |
-        pip install playwright requests
-        # Playwright का Firefox इंस्टॉल कर रहे हैं (जिसे हम Tor नेटवर्क से जोड़ेंगे)
-        python -m playwright install --with-deps firefox
+        # 🟢 IP ट्रैक करने के लिए PySocks ऐड किया गया है
+        pip install playwright playwright-stealth requests PySocks
+        python -m playwright install --with-deps chromium
 
     - name: Run Python Bot inside Virtual Screen
       env:
