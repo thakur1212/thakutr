@@ -34,7 +34,7 @@ def run_machine():
             
             try:
                 browser = p.chromium.launch(
-                    headless=True,
+                    headless=False,
                     args=["--mute-audio", "--no-sandbox", "--disable-setuid-sandbox"]
                 )
                 
