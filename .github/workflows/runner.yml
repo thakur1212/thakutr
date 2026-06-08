@@ -28,11 +28,11 @@ jobs:
 
     - name: Download & Setup Original Tor Browser
       run: |
-        # असली Tor Browser डाउनलोड करना
-        wget https://dist.torproject.org/torbrowser/13.5.3/tor-browser-linux-x86_64-13.5.3.tar.xz
+        # 🟢 FIX: अब Tor के Archive सर्वर का इस्तेमाल किया है, यहाँ से 404 एरर कभी नहीं आएगा
+        wget https://archive.torproject.org/tor-package-archive/torbrowser/13.5.3/tor-browser-linux-x86_64-13.5.3.tar.xz
         tar -xf tor-browser-linux-x86_64-13.5.3.tar.xz
         
-        # Tor Browser की ऑटो-कनेक्ट सेटिंग ऑन करना (ताकि Playwright बिना रुके काम करे)
+        # Tor Browser की ऑटो-कनेक्ट सेटिंग ऑन करना
         mkdir -p tor-browser/Browser/TorBrowser/Data/Browser/profile.default
         echo 'user_pref("torbrowser.settings.quickstart.enabled", true);' > tor-browser/Browser/TorBrowser/Data/Browser/profile.default/user.js
 
