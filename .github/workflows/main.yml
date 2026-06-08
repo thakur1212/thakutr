@@ -1,4 +1,4 @@
-name: Oculus Proxy Runner
+name: VPN Runner (OpenVPN)
 
 on:
   repository_dispatch:
@@ -16,12 +16,44 @@ jobs:
     - uses: actions/setup-python@v5
       with:
         python-version: '3.10'
-    - name: Install deps
+
+    - name: Install system deps & Playwright
       run: |
-        sudo apt-get update && sudo apt-get install -y xvfb
+        sudo apt-get update
+        sudo apt-get install -y xvfb openvpn curl
         pip install playwright requests
         python -m playwright install --with-deps firefox
-    - name: Run bot with proxy
+
+    - name: Download US OpenVPN config (VPNGate)
+      run: |
+        # VPNGate की public API से US सर्वर की config फ़ेच करें
+        curl -s https://www.vpngate.net/api/iphone/ | tr ',' '\n' | grep -A 10 "United States" | grep -m1 "ovpn" | awk -F':' '{print $2}' | xargs -I {} curl -o us.ovpn {}
+        # अगर ऊपर कमांड से ठीक से फ़ाइल न बने तो मैन्युअल static config का उपयोग करें (fallback)
+        if [ ! -s us.ovpn ]; then
+          # वैकल्पिक: एक direct config जो US सर्वर की हो (आप खुद कभी अपलोड कर सकते हैं)
+          echo "No US config found, using fallback."
+          # fallback के लिए हम किसी भी open config का इस्तेमाल कर सकते हैं - लेकिन US guarantee नहीं
+          curl -o us.ovpn https://www.vpngate.net/app/vpngate-en/vpngate_public_969821973.opengw.net.ovpn
+        fi
+        echo "US config downloaded."
+        cat us.ovpn
+
+    - name: Connect VPN (OpenVPN)
+      run: |
+        sudo openvpn --config us.ovpn --daemon --log /tmp/vpn.log
+        # VPN पूरी तरह कनेक्ट होने तक इंतज़ार करें (IP change होने की जाँच)
+        echo "Waiting for VPN..."
+        for i in {1..30}; do
+          if curl -s --max-time 2 ifconfig.me | grep -q "United States"; then
+            echo "✅ VPN active - IP changed to US"
+            break
+          fi
+          sleep 2
+        done
+        # IP चेक करें
+        echo "Current IP: $(curl -s ifconfig.me)"
+
+    - name: Run bot inside Xvfb
       env:
         URL: ${{ github.event.client_payload.target_url }}
         VIEWS: ${{ github.event.client_payload.target_views }}
@@ -30,3 +62,7 @@ jobs:
         MID: ${{ matrix.machine_id }}
       run: |
         xvfb-run --server-args="-screen 0 1280x720x24" python runner.py "$URL" "$VIEWS" "$CHAT_ID" "$TOKEN" "$MID"
+
+    - name: Disconnect VPN (optional)
+      if: always()
+      run: sudo killall openvpn || true
