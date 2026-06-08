@@ -21,25 +21,23 @@ jobs:
       with:
         python-version: '3.10'
 
-    - name: Install Xvfb (Virtual Screen)
+    - name: Install Xvfb & Tor Linux Dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y xvfb
+        # 🟢 Xvfb और Tor Browser के लिए ज़रुरी Linux लाइब्रेरी इंस्टॉल कर रहे हैं
+        sudo apt-get install -y xvfb libdbus-glib-1-2
 
     - name: Download & Setup Original Tor Browser
       run: |
-        # 🟢 FIX: अब Tor के Archive सर्वर का इस्तेमाल किया है, यहाँ से 404 एरर कभी नहीं आएगा
         wget https://archive.torproject.org/tor-package-archive/torbrowser/13.5.3/tor-browser-linux-x86_64-13.5.3.tar.xz
         tar -xf tor-browser-linux-x86_64-13.5.3.tar.xz
         
-        # Tor Browser की ऑटो-कनेक्ट सेटिंग ऑन करना
         mkdir -p tor-browser/Browser/TorBrowser/Data/Browser/profile.default
         echo 'user_pref("torbrowser.settings.quickstart.enabled", true);' > tor-browser/Browser/TorBrowser/Data/Browser/profile.default/user.js
 
-    - name: Install Playwright & Linux Dependencies
+    - name: Install Playwright & Dependencies
       run: |
         pip install playwright requests
-        # Playwright के ज़रिए वो सारे Linux पैकेजेस डालना जो Tor को चलाने के लिए ज़रुरी हैं
         python -m playwright install-deps firefox
 
     - name: Run Python Bot inside Virtual Screen
