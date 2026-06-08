@@ -21,7 +21,7 @@ def send_screenshot_to_telegram(page, text_msg):
             data = {'chat_id': CHAT_ID, 'caption': text_msg}
             requests.post(url, files=files, data=data)
         os.remove(screenshot_path)
-        print(f"📸 मशीन {MACHINE_ID}: स्क्रीनशॉट सफलतापूर्वक भेजा गया।")
+        print(f"📸 मशीन {MACHINE_ID}: स्क्रीनशॉट भेज दिया गया है।")
     except Exception as e:
         print(f"❌ स्क्रीनशॉट भेजने में एरर: {e}")
 
@@ -33,7 +33,6 @@ def run_machine():
             print(f"\n--- मशीन {MACHINE_ID} | लूप {i}/{LOOP_COUNT} ---")
             
             try:
-                # गिटहब रनर पर बिना किसी पाथ एरर के चलने के लिए डिफ़ॉल्ट क्रोमियम सबसे बेस्ट है
                 browser = p.chromium.launch(
                     headless=False,
                     args=["--mute-audio", "--no-sandbox", "--disable-setuid-sandbox"]
@@ -45,7 +44,7 @@ def run_machine():
                 )
                 page = context.new_page()
                 
-                # बोट डिटेक्शन छुपाने के लिए स्क्रिप्ट
+                # बोट डिटेक्शन छुपाना
                 page.add_init_script("""
                     Object.defineProperty(navigator, 'webdriver', {
                         get: () => undefined
@@ -71,7 +70,7 @@ def run_machine():
                     instagram_frame.locator("body").click()
                     print("▶️ बैकअप बॉडी क्लिक का इस्तेमाल किया गया।")
                 
-                # 25वें सेकंड पर स्क्रीनशॉट (10s पहले हो चुके हैं + 15s अब = 25s)
+                # 25वें सेकंड पर स्क्रीनशॉट (10s पहले + 15s अब = 25s)
                 page.wait_for_timeout(15000) 
                 print("📸 25 सेकंड हो गए! स्क्रीनशॉट कैप्चर हो रहा है...")
                 send_screenshot_to_telegram(page, f"🤖 मशीन {MACHINE_ID}\n🔄 लूप: {i}/{LOOP_COUNT}\n✅ लाइव रनिंग स्टेटस!")
