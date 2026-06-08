@@ -5,22 +5,15 @@ import random
 import requests
 from playwright.sync_api import sync_playwright
 
-# इनपुट
 TARGET_URL = sys.argv[1]
 LOOP_COUNT = int(sys.argv[2])
 CHAT_ID = sys.argv[3]
 BOT_TOKEN = sys.argv[4]
 MACHINE_ID = sys.argv[5]
 
-# 🟢 Oculus Proxy (अपडेटेड क्रेडेंशियल्स)
-PROXY_SERVER = "http://proxy.oculus-proxy.com:31114"
-PROXY_USER = "oc-1ca258d8ded687c1eb11f1056d2bb607cd70beb07ad58abbc8acfdfd183c037c-country-us-session-675c1"
-PROXY_PASS = "lppaxns1g7vw"
-
 def send_screenshot_to_telegram(page, text_msg):
     screenshot_path = f"ss_{MACHINE_ID}.png"
     try:
-        # पूरा पेज स्क्रीनशॉट
         page.screenshot(path=screenshot_path, full_page=True)
         url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendPhoto"
         with open(screenshot_path, 'rb') as photo:
@@ -33,10 +26,9 @@ def send_screenshot_to_telegram(page, text_msg):
         print(f"❌ स्क्रीनशॉट एरर: {e}")
 
 def run_machine():
-    print(f"🎰 मशीन {MACHINE_ID} (Oculus Proxy) | लूप्स: {LOOP_COUNT}")
+    print(f"🎰 मशीन {MACHINE_ID} (VPN मोड) | लूप्स: {LOOP_COUNT}")
 
     with sync_playwright() as p:
-        # Firefox ब्राउज़र (बिना headless) 
         browser = p.firefox.launch(
             headless=False,
             args=["--no-sandbox"]
@@ -44,14 +36,8 @@ def run_machine():
 
         for i in range(1, LOOP_COUNT + 1):
             print(f"\n--- मशीन {MACHINE_ID} | लूप {i}/{LOOP_COUNT} ---")
-
-            # हर लूप में नया कॉन्टेक्स्ट, प्रॉक्सी के साथ
+            # सीधा सादा context, कोई प्रॉक्सी नहीं
             context = browser.new_context(
-                proxy={
-                    "server": PROXY_SERVER,
-                    "username": PROXY_USER,
-                    "password": PROXY_PASS
-                },
                 viewport={"width": 1280, "height": 720},
                 user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:115.0) Gecko/20100101 Firefox/115.0",
                 ignore_https_errors=True
@@ -60,14 +46,11 @@ def run_machine():
 
             try:
                 start_time = time.time()
-
-                # 1. वेबसाइट खोलें
                 print("🌐 पेज लोड हो रहा है...")
                 page.goto(TARGET_URL, wait_until="domcontentloaded", timeout=60000)
                 time.sleep(random.uniform(2, 5))
 
-                # 2. यूट्यूब वीडियो प्ले करें (JavaScript से)
-                print("▶️ वीडियो प्ले कर रहा हूँ...")
+                print("▶️ वीडियो प्ले कर रहा हूँ (JS)...")
                 try:
                     page.evaluate("""
                         async () => {
@@ -88,20 +71,17 @@ def run_machine():
                 except:
                     pass
 
-                # 3. 25 सेकंड पर स्क्रीनशॉट
+                # 25 सेकंड पर स्क्रीनशॉट
                 elapsed = time.time() - start_time
                 if elapsed < 25:
                     time.sleep(25 - elapsed)
-                send_screenshot_to_telegram(
-                    page,
-                    f"🤖 मशीन {MACHINE_ID}\n🔄 लूप: {i}/{LOOP_COUNT}\n🔁 Oculus Proxy"
-                )
+                send_screenshot_to_telegram(page, f"🤖 मशीन {MACHINE_ID}\n🔄 लूप: {i}/{LOOP_COUNT}\n🌐 VPN (OpenVPN)")
 
-                # 4. 31 सेकंड पूरे करें
+                # 31 सेकंड पूरे करें
                 elapsed = time.time() - start_time
                 if elapsed < 31:
                     time.sleep(31 - elapsed)
-                print("🔒 लूप पूरा")
+                print("🔒 लूप समाप्त")
 
             except Exception as e:
                 print(f"❌ एरर: {e}")
