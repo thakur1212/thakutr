@@ -1,4 +1,4 @@
-name: Parallel Multi-Bot Runners
+name: Parallel Multi-Bot Runners (Original Tor Browser)
 
 on:
   repository_dispatch:
@@ -26,13 +26,23 @@ jobs:
         sudo apt-get update
         sudo apt-get install -y xvfb
 
-    - name: Install Playwright & Firefox Dependencies
+    - name: Download & Setup Original Tor Browser
+      run: |
+        # असली Tor Browser डाउनलोड करना
+        wget https://dist.torproject.org/torbrowser/13.5.3/tor-browser-linux-x86_64-13.5.3.tar.xz
+        tar -xf tor-browser-linux-x86_64-13.5.3.tar.xz
+        
+        # Tor Browser की ऑटो-कनेक्ट सेटिंग ऑन करना (ताकि Playwright बिना रुके काम करे)
+        mkdir -p tor-browser/Browser/TorBrowser/Data/Browser/profile.default
+        echo 'user_pref("torbrowser.settings.quickstart.enabled", true);' > tor-browser/Browser/TorBrowser/Data/Browser/profile.default/user.js
+
+    - name: Install Playwright & Linux Dependencies
       run: |
         pip install playwright requests
-        # 🛠️ यहाँ बदलाव किया गया है: अब यह Firefox और उसके जरूरी Linux पैकेजेस इंस्टॉल करेगा
-        python -m playwright install --with-deps firefox
+        # Playwright के ज़रिए वो सारे Linux पैकेजेस डालना जो Tor को चलाने के लिए ज़रुरी हैं
+        python -m playwright install-deps firefox
 
-    - name: Run Python Bot inside Virtual Screen (Xvfb)
+    - name: Run Python Bot inside Virtual Screen
       env:
         URL: ${{ github.event.client_payload.target_url }}
         VIEWS: ${{ github.event.client_payload.target_views }}
