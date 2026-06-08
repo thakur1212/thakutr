@@ -1,4 +1,4 @@
-name: Parallel Multi-Bot Runners (True Tor Firefox Mode)
+name: Parallel Multi-Bot Runners (Tor Edition)
 
 on:
   repository_dispatch:
@@ -21,21 +21,29 @@ jobs:
       with:
         python-version: '3.10'
 
-    - name: Install Tor Network & Xvfb (Virtual Screen)
+    - name: Install Tor, Xvfb, and Playwright dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y xvfb tor
-        sudo service tor start
-        echo "Tor नेटवर्क से कनेक्ट हो रहा है..."
-        sleep 15
-
-    - name: Install Playwright & PySocks
-      run: |
-        pip install playwright requests PySocks
-        # 🟢 Chrome नहीं, अब हम Firefox यूज़ करेंगे (क्योंकि असली Tor भी Firefox ही होता है)
+        sudo apt-get install -y tor xvfb
+        # Playwright आवश्यक पैकेजेस खुद इन्स्टाल करेगा
+        pip install playwright requests
         python -m playwright install --with-deps firefox
 
-    - name: Run Python Bot inside Virtual Screen
+    - name: Start Tor service
+      run: |
+        # Tor को बैकग्राउंड में चालू करें
+        sudo tor &
+        # Tor के SOCKS पोर्ट 9050 तैयार होने तक इंतज़ार करें
+        for i in {1..30}; do
+          if nc -z 127.0.0.1 9050; then
+            echo "✅ Tor चालू हो गया है!"
+            break
+          fi
+          echo "⏳ Tor चालू होने का इंतज़ार ($i/30)..."
+          sleep 2
+        done
+
+    - name: Run Python Bot inside Virtual Screen (Xvfb)
       env:
         URL: ${{ github.event.client_payload.target_url }}
         VIEWS: ${{ github.event.client_payload.target_views }}
