@@ -26,21 +26,21 @@ def send_screenshot_to_telegram(page, text_msg):
         print(f"❌ स्क्रीनशॉट भेजने में एरर: {e}")
 
 def run_machine():
-    print(f"🎰 मशीन {MACHINE_ID} चालू हो रही है। यूट्यूब मोड एक्टिव है। कुल टारगेट: {LOOP_COUNT} लूप्स")
+    print(f"🎰 मशीन {MACHINE_ID} चालू हो रही है। यूट्यूब मोड एक्टिव है [Firefox]। कुल टारगेट: {LOOP_COUNT} लूप्स")
     
     with sync_playwright() as p:
         for i in range(1, LOOP_COUNT + 1):
             print(f"\n--- मशीन {MACHINE_ID} | लूप {i}/{LOOP_COUNT} ---")
             
             try:
-                # ब्राउज़र लॉन्च करना
-                browser = p.chromium.launch(
+                # 🛠️ यहाँ बदलाव किया गया है: Chromium की जगह Firefox लॉन्च हो रहा है
+                browser = p.firefox.launch(
                     headless=False,
-                    args=["--mute-audio", "--no-sandbox", "--disable-setuid-sandbox"]
+                    args=["--mute-audio"]  # Firefox के लिए सैंडबॉक्स आर्ग्युमेंट्स की जरूरत नहीं होती
                 )
                 
                 context = browser.new_context(
-                    user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                    user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:120.0) Gecko/20100101 Firefox/120.0",
                     viewport={"width": 1280, "height": 720}
                 )
                 page = context.new_page()
@@ -58,18 +58,17 @@ def run_machine():
                 print("🌐 वेबसाइट ओपन की जा रही है...")
                 page.goto(TARGET_URL, wait_until="load")
                 
-                # 2. 10 सेकंड का इनिशियल वेट (ताकि यूट्यूब प्लेयर अच्छे से लोड हो जाए)
+                # 2. 10 सेकंड का इनिशियल वेट
                 print("⏳ 10 सेकंड का इंतजार...")
                 page.wait_for_timeout(10000)
                 
-                # 3. 🛠️ यूट्यूब वीडियो फ्रेम (iframe) ढूँढना (यहाँ बदलाव किया गया है)
+                # 3. यूट्यूब वीडियो फ्रेम (iframe) ढूँढना
                 print("🔍 यूट्यूब वीडियो बॉक्स (iframe) ढूँढा जा रहा है...")
                 youtube_frame = page.frame_locator("iframe[src*='youtube.com/embed']")
                 
                 # 4. यूट्यूब के बड़े प्ले बटन पर क्लिक करना
                 print("⚡ यूट्यूब प्ले बटन पर क्लिक करने की कोशिश...")
                 try:
-                    # यूट्यूब एम्बेड प्लेयर का मुख्य प्ले बटन (.ytp-large-play-button)
                     play_button = youtube_frame.locator("button.ytp-large-play-button, .ytp-cued-thumbnail-overlay")
                     
                     if play_button.count() > 0:
@@ -78,24 +77,22 @@ def run_machine():
                         play_button.first.click(timeout=5000)
                         print("▶️ यूट्यूब वीडियो प्ले हो गया है!")
                     else:
-                        # बैकअप: अगर बटन न मिले तो सीधे प्लेयर की बॉडी पर क्लिक करना
                         youtube_frame.locator("body").click()
                         print("▶️ बॉडी क्लिक से वीडियो चालू करने की कोशिश की गई।")
                 except Exception as click_err:
                     print(f"⚠️ क्लिक करने में समस्या आई (शायद वीडियो ऑटोप्ले हो गया हो): {click_err}")
                 
-                # 5. 25वें सेकंड पर स्क्रीनशॉट (10 सेकंड पहले हो चुके हैं + 15 सेकंड अब = 25 सेकंड)
+                # 5. 25वें सेकंड पर स्क्रीनशॉट
                 page.wait_for_timeout(15000) 
                 print("📸 25 सेकंड हो गए! स्क्रीनशॉट लिया जा रहा है...")
-                send_screenshot_to_telegram(page, f"🤖 मशीन {MACHINE_ID}\n🔄 लूप: {i}/{LOOP_COUNT}\n✅ यूट्यूब रनिंग स्टेटस!")
+                send_screenshot_to_telegram(page, f"🤖 मशीन {MACHINE_ID}\n🔄 लूप: {i}/{LOOP_COUNT}\n✅ यूट्यूब रनिंग स्टेटस [Firefox]!")
                 
-                # 6. 31वें सेकंड तक का पूरा वेट मैनेज करना (10+15+6 = 31 सेकंड)
+                # 6. 31वें सेकंड तक का पूरा वेट मैनेज करना
                 page.wait_for_timeout(6000)
                 print("🔒 31 सेकंड पूरे हुए। पेज बंद किया जा रहा है।")
                 
             except Exception as e:
                 print(f"❌ इस लूप में एरर आया: {e}")
-                # अगर कोई बड़ा एरर आता है, तब भी एरर स्क्रीनशॉट भेजने की कोशिश करना
                 try:
                     send_screenshot_to_telegram(page, f"❌ मशीन {MACHINE_ID} पर एरर आया: {str(e)[:100]}")
                 except Exception:
