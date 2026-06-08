@@ -1,4 +1,4 @@
-name: Parallel Multi-Bot Runners (Original Tor Browser)
+name: Parallel Multi-Bot Runners (Tor Network Bypass)
 
 on:
   repository_dispatch:
@@ -21,24 +21,22 @@ jobs:
       with:
         python-version: '3.10'
 
-    - name: Install Xvfb & Tor Linux Dependencies
+    - name: Install Tor Network & Xvfb (Virtual Screen)
       run: |
         sudo apt-get update
-        # 🟢 Xvfb और Tor Browser के लिए ज़रुरी Linux लाइब्रेरी इंस्टॉल कर रहे हैं
-        sudo apt-get install -y xvfb libdbus-glib-1-2
-
-    - name: Download & Setup Original Tor Browser
-      run: |
-        wget https://archive.torproject.org/tor-package-archive/torbrowser/13.5.3/tor-browser-linux-x86_64-13.5.3.tar.xz
-        tar -xf tor-browser-linux-x86_64-13.5.3.tar.xz
+        # 🟢 Xvfb और असली Tor Service इंस्टॉल कर रहे हैं
+        sudo apt-get install -y xvfb tor
         
-        mkdir -p tor-browser/Browser/TorBrowser/Data/Browser/profile.default
-        echo 'user_pref("torbrowser.settings.quickstart.enabled", true);' > tor-browser/Browser/TorBrowser/Data/Browser/profile.default/user.js
+        # 🟢 Tor सर्विस को स्टार्ट कर रहे हैं
+        sudo service tor start
+        echo "Tor नेटवर्क से कनेक्ट हो रहा है..."
+        sleep 15  # Tor को कनेक्ट होने के लिए 15 सेकंड का समय
 
     - name: Install Playwright & Dependencies
       run: |
         pip install playwright requests
-        python -m playwright install-deps firefox
+        # Playwright का Firefox इंस्टॉल कर रहे हैं (जिसे हम Tor नेटवर्क से जोड़ेंगे)
+        python -m playwright install --with-deps firefox
 
     - name: Run Python Bot inside Virtual Screen
       env:
