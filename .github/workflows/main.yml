@@ -1,4 +1,4 @@
-name: Parallel Multi-Bot Runners (Anti-Bot + IP Tracking)
+name: Parallel Multi-Bot Runners (True Tor Firefox Mode)
 
 on:
   repository_dispatch:
@@ -29,11 +29,11 @@ jobs:
         echo "Tor नेटवर्क से कनेक्ट हो रहा है..."
         sleep 15
 
-    - name: Install Playwright, Stealth & PySocks
+    - name: Install Playwright & PySocks
       run: |
-        # 🟢 IP ट्रैक करने के लिए PySocks ऐड किया गया है
-        pip install playwright playwright-stealth requests PySocks
-        python -m playwright install --with-deps chromium
+        pip install playwright requests PySocks
+        # 🟢 Chrome नहीं, अब हम Firefox यूज़ करेंगे (क्योंकि असली Tor भी Firefox ही होता है)
+        python -m playwright install --with-deps firefox
 
     - name: Run Python Bot inside Virtual Screen
       env:
