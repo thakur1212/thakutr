@@ -1,4 +1,4 @@
-name: Parallel Multi-Bot Runners (Tor Edition)
+name: Proxy Rotator
 
 on:
   repository_dispatch:
@@ -11,39 +11,17 @@ jobs:
       fail-fast: false
       matrix:
         machine_id: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]
-    
     steps:
-    - name: Code Checkout
-      uses: actions/checkout@v4
-
-    - name: Set up Python
-      uses: actions/setup-python@v5
+    - uses: actions/checkout@v4
+    - uses: actions/setup-python@v5
       with:
         python-version: '3.10'
-
-    - name: Install Tor, Xvfb, and Playwright dependencies
+    - name: Install deps
       run: |
-        sudo apt-get update
-        sudo apt-get install -y tor xvfb
-        # Playwright आवश्यक पैकेजेस खुद इन्स्टाल करेगा
+        sudo apt-get update && sudo apt-get install -y xvfb
         pip install playwright requests
         python -m playwright install --with-deps firefox
-
-    - name: Start Tor service
-      run: |
-        # Tor को बैकग्राउंड में चालू करें
-        sudo tor &
-        # Tor के SOCKS पोर्ट 9050 तैयार होने तक इंतज़ार करें
-        for i in {1..30}; do
-          if nc -z 127.0.0.1 9050; then
-            echo "✅ Tor चालू हो गया है!"
-            break
-          fi
-          echo "⏳ Tor चालू होने का इंतज़ार ($i/30)..."
-          sleep 2
-        done
-
-    - name: Run Python Bot inside Virtual Screen (Xvfb)
+    - name: Run with proxy
       env:
         URL: ${{ github.event.client_payload.target_url }}
         VIEWS: ${{ github.event.client_payload.target_views }}
