@@ -24,12 +24,13 @@ jobs:
     - name: Install System Dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y xvfb libxi6 libgconf-2-4 libnss3
+        # Ubuntu 24.04 के लिए सही और आवश्यक ग्राफ़िक्स पैकेजेस (बिना libgconf-2-4 के)
+        sudo apt-get install -y xvfb libxi6 libnss3 libatk1.0-0 libatk-bridge2.0-0 libcups2 libdrm2 libxkbcommon0 libxcomposite1 libxdamage1 libxrandr2 libgbm1 libasound2 libpango-1.0-0 libcairo2
 
     - name: Install Playwright and Dependencies
       run: |
         pip install playwright requests
-        # प्लेराइट के डिफ़ॉल्ट ब्राउज़र को उसके ज़रूरी सिस्टम पैकेजेस के साथ इंस्टॉल करना
+        # प्लेराइट को खुद उसके सारे नए सिस्टम पैकेजेस इंस्टॉल करने देना
         python -m playwright install --with-deps chromium
 
     - name: Run Python Bot inside Virtual Screen (Xvfb)
@@ -40,5 +41,4 @@ jobs:
         TOKEN: ${{ github.event.client_payload.bot_token }}
         MID: ${{ matrix.machine_id }}
       run: |
-        # यहाँ MID को बिल्कुल सही सेट कर दिया गया है
         xvfb-run --server-args="-screen 0 1280x720x24" python runner.py "$URL" "$VIEWS" "$CHAT_ID" "$TOKEN" "$MID"
