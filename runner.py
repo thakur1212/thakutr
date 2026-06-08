@@ -21,8 +21,9 @@ def send_screenshot_to_telegram(page, text_msg):
             data = {'chat_id': CHAT_ID, 'caption': text_msg}
             requests.post(url, files=files, data=data)
         os.remove(screenshot_path)
+        print(f"📸 मशीन {MACHINE_ID}: स्क्रीनशॉट सफलतापूर्वक भेजा गया।")
     except Exception as e:
-        print(f"स्क्रीनशॉट भेजने में एरर: {e}")
+        print(f"❌ स्क्रीनशॉट भेजने में एरर: {e}")
 
 def run_machine():
     print(f"🎰 मशीन {MACHINE_ID} चालू हो रही है। कुल टारगेट: {LOOP_COUNT} लूप्स")
@@ -32,19 +33,19 @@ def run_machine():
             print(f"\n--- मशीन {MACHINE_ID} | लूप {i}/{LOOP_COUNT} ---")
             
             try:
-                # यहाँ हमने प्लेराइट के अपने 'chrome' चैनल को टारगेट किया है, जो हमने ऊपर डाउनलोड करवाया है
+                # गिटहब रनर पर बिना किसी पाथ एरर के चलने के लिए डिफ़ॉल्ट क्रोमियम सबसे बेस्ट है
                 browser = p.chromium.launch(
                     headless=False,
-                    channel="chrome", 
                     args=["--mute-audio", "--no-sandbox", "--disable-setuid-sandbox"]
                 )
                 
                 context = browser.new_context(
-                    user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+                    user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                    viewport={"width": 1280, "height": 720}
                 )
                 page = context.new_page()
                 
-                # बोट डिटेक्शन छुपाने के लिए स्क्रिप्ट इन्जेक्ट करना
+                # बोट डिटेक्शन छुपाने के लिए स्क्रिप्ट
                 page.add_init_script("""
                     Object.defineProperty(navigator, 'webdriver', {
                         get: () => undefined
@@ -72,8 +73,8 @@ def run_machine():
                 
                 # 25वें सेकंड पर स्क्रीनशॉट (10s पहले हो चुके हैं + 15s अब = 25s)
                 page.wait_for_timeout(15000) 
-                print("📸 25 सेकंड हो गए! स्क्रीनशॉट भेजा जा रहा है...")
-                send_screenshot_to_telegram(page, f"🤖 मशीन {MACHINE_ID}\n🔄 लूप: {i}/{LOOP_COUNT}\n✅ रनिंग स्टेटस स्क्रीनशॉट")
+                print("📸 25 सेकंड हो गए! स्क्रीनशॉट कैप्चर हो रहा है...")
+                send_screenshot_to_telegram(page, f"🤖 मशीन {MACHINE_ID}\n🔄 लूप: {i}/{LOOP_COUNT}\n✅ लाइव रनिंग स्टेटस!")
                 
                 # 31वें सेकंड तक का कुल वेट मैनेज करना
                 remaining_wait = 31 - (time.time() - start_time)
