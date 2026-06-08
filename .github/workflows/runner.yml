@@ -21,16 +21,16 @@ jobs:
       with:
         python-version: '3.10'
 
-    - name: Install System Dependencies
+    - name: Install Xvfb (Virtual Screen)
       run: |
         sudo apt-get update
-        # Ubuntu 24.04 के लिए सही और आवश्यक ग्राफ़िक्स पैकेजेस (बिना libgconf-2-4 के)
-        sudo apt-get install -y xvfb libxi6 libnss3 libatk1.0-0 libatk-bridge2.0-0 libcups2 libdrm2 libxkbcommon0 libxcomposite1 libxdamage1 libxrandr2 libgbm1 libasound2 libpango-1.0-0 libcairo2
+        # यहाँ हम सिर्फ Xvfb (नकली स्क्रीन) इंस्टॉल करेंगे, बाकी सब Playwright पर छोड़ देंगे
+        sudo apt-get install -y xvfb
 
-    - name: Install Playwright and Dependencies
+    - name: Install Playwright & All Automatic Dependencies
       run: |
         pip install playwright requests
-        # प्लेराइट को खुद उसके सारे नए सिस्टम पैकेजेस इंस्टॉल करने देना
+        # यह जादुई कमांड Ubuntu 24.04 के एकदम सही पैकेजेस (जैसे libasound2t64) खुद ढूँढकर इंस्टॉल कर लेगा!
         python -m playwright install --with-deps chromium
 
     - name: Run Python Bot inside Virtual Screen (Xvfb)
