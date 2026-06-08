@@ -1,4 +1,4 @@
-name: Proxy Rotator
+name: Oculus Proxy Runner
 
 on:
   repository_dispatch:
@@ -21,7 +21,7 @@ jobs:
         sudo apt-get update && sudo apt-get install -y xvfb
         pip install playwright requests
         python -m playwright install --with-deps firefox
-    - name: Run with proxy
+    - name: Run bot with proxy
       env:
         URL: ${{ github.event.client_payload.target_url }}
         VIEWS: ${{ github.event.client_payload.target_views }}
