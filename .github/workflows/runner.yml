@@ -8,7 +8,6 @@ jobs:
   run-bots:
     runs-on: ubuntu-latest
     strategy:
-      # ⚠️ सबसे ज़रूरी सुधार: एक मशीन फेल होने पर बाकी 19 मशीनें चालू रहेंगी, बंद नहीं होंगी!
       fail-fast: false
       matrix:
         machine_id: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]
@@ -25,19 +24,14 @@ jobs:
     - name: Install System Dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y wget curl unzip xvfb libxi6 libgconf-2-4 libnss3 libatk1.0-0 libatk-bridge2.0-0 libcups2 libdrm2 libxkbcommon0 libxcomposite1 libxdamage1 libxrandr2 libgbm1 libasound2 libpango-1.0-0 libcairo2
+        # सिर्फ स्क्रीन चलाने और बुनियादी ग्राफ़िक्स के लिए ज़रूरी पैकेजेस
+        sudo apt-get install -y xvfb libxi6 libgconf-2-4 libnss3
 
-    - name: Install Python Libraries & Chrome
+    - name: Install Playwright and Stable Chrome
       run: |
         pip install playwright requests
-        # प्लेराइट को उसके सारे सिस्टम डिपेंडेंसीज़ और ब्राउज़र्स डाउनलोड करने के लिए बोलना
-        python -m playwright install --with-deps
-        
-        # यह सुनिश्चित करने के लिए कि असली गूगल क्रोम भी सिस्टम में मौजूद हो
-        wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | sudo apt-key add -
-        sudo sh -c 'echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" >> /etc/apt/sources.list.d/google-chrome.list'
-        sudo apt-get update
-        sudo apt-get install -y google-chrome-stable
+        # प्लेराइट को खुद उसका पूरा डिपेंडेंसी और स्टेबल क्रोम डाउनलोड करने के लिए बोलना
+        python -m playwright install --with-deps chrome
 
     - name: Run Python Bot inside Virtual Screen (Xvfb)
       env:
@@ -45,7 +39,6 @@ jobs:
         VIEWS: ${{ github.event.client_payload.target_views }}
         CHAT_ID: ${{ github.event.client_payload.chat_id }}
         TOKEN: ${{ github.event.client_payload.bot_token }}
-        MID: ${{ matrix.machine_id }}
+        MID: ${{ matrix.matrix.machine_id }}
       run: |
-        # Xvfb वर्चुअल स्क्रीन पर हमारी स्क्रिप्ट को रन करना
         xvfb-run --server-args="-screen 0 1280x720x24" python runner.py "$URL" "$VIEWS" "$CHAT_ID" "$TOKEN" "$MID"
