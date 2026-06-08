@@ -24,14 +24,13 @@ jobs:
     - name: Install Xvfb (Virtual Screen)
       run: |
         sudo apt-get update
-        # यहाँ हम सिर्फ Xvfb (नकली स्क्रीन) इंस्टॉल करेंगे, बाकी सब Playwright पर छोड़ देंगे
         sudo apt-get install -y xvfb
 
-    - name: Install Playwright & All Automatic Dependencies
+    - name: Install Playwright & Firefox Dependencies
       run: |
         pip install playwright requests
-        # यह जादुई कमांड Ubuntu 24.04 के एकदम सही पैकेजेस (जैसे libasound2t64) खुद ढूँढकर इंस्टॉल कर लेगा!
-        python -m playwright install --with-deps chromium
+        # 🛠️ यहाँ बदलाव किया गया है: अब यह Firefox और उसके जरूरी Linux पैकेजेस इंस्टॉल करेगा
+        python -m playwright install --with-deps firefox
 
     - name: Run Python Bot inside Virtual Screen (Xvfb)
       env:
