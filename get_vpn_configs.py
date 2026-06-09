@@ -6,17 +6,12 @@ import sys
 import os
 import random
 
-def fetch_configs(max_configs=10):
-    """
-    VPNGate API से कई देशों के (US priority) OpenVPN कॉन्फ़िग निकालता है,
-    और उन्हें config_1.ovpn, config_2.ovpn ... के रूप में सेव करता है।
-    """
+def fetch_configs(max_configs=30):   # 30 कर दिया
     url = "https://www.vpngate.net/api/iphone/"
     try:
         resp = requests.get(url, timeout=30, headers={"User-Agent": "Mozilla/5.0"})
         resp.encoding = 'utf-8'
         lines = resp.text.strip().split('\n')
-        # * और # वाली लाइनें हटाओ
         data_lines = [l for l in lines if l.strip() and not l.startswith('*') and not l.startswith('#')]
         if not data_lines:
             print("⚠️ VPNGate से कोई डेटा नहीं मिला।")
@@ -41,13 +36,11 @@ def fetch_configs(max_configs=10):
             if 'remote' not in config:
                 continue
 
-            entry = config
             if any(x in country_long.lower() for x in ['united states', 'us', 'america']):
-                us_configs.append(entry)
+                us_configs.append(config)
             else:
-                other_configs.append(entry)
+                other_configs.append(config)
 
-        # US को प्राथमिकता, फिर बाकी
         all_configs = us_configs + other_configs
         random.shuffle(all_configs)
 
@@ -68,7 +61,7 @@ def fetch_configs(max_configs=10):
         return 0
 
 if __name__ == "__main__":
-    count = fetch_configs(10)
+    count = fetch_configs(30)
     if count == 0:
         print("❌ कोई कॉन्फ़िग नहीं मिली।")
         sys.exit(1)
