@@ -1,4 +1,4 @@
-name: Dynamic VPN Runner
+name: Multi-VPN Anti-Detect Runner
 
 on:
   repository_dispatch:
@@ -17,17 +17,17 @@ jobs:
       with:
         python-version: '3.10'
 
-    - name: Install system deps & Playwright
+    - name: Install system & Python dependencies
       run: |
         sudo apt-get update
         sudo apt-get install -y xvfb openvpn curl
-        pip install playwright requests
+        pip install playwright requests beautifulsoup4
         python -m playwright install --with-deps firefox
 
-    - name: Get multiple VPN configs (US + others)
-      run: python get_vpn_configs.py
+    - name: Gather 100+ VPN configs from multiple sources
+      run: python get_all_vpn_configs.py   # फ़ाइल का नाम ध्यान रखें
 
-    - name: Run bot with dynamic VPN switching
+    - name: Run bot with per-loop fresh IP & anti-detection
       env:
         URL: ${{ github.event.client_payload.target_url }}
         VIEWS: ${{ github.event.client_payload.target_views }}
@@ -35,7 +35,6 @@ jobs:
         TOKEN: ${{ github.event.client_payload.bot_token }}
         MID: ${{ matrix.machine_id }}
       run: |
-        # रनर को sudo पासवर्ड नहीं चाहिए (actions में sudo बिना पासवर्ड काम करता है)
         xvfb-run --server-args="-screen 0 1280x720x24" python runner.py "$URL" "$VIEWS" "$CHAT_ID" "$TOKEN" "$MID"
 
     - name: Cleanup VPN
