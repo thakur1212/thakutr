@@ -61,7 +61,7 @@ def connect_vpn(config_file):
             new_ip = requests.get("https://ifconfig.me", timeout=5).text.strip()
             if new_ip and new_ip != old_ip:
                 print(f"✅ IP बदला: {new_ip}")
-                return new_ip   # IP लौटाएँ
+                return new_ip
         except:
             pass
     print("⚠️ IP नहीं बदला, फिर भी आगे बढ़ेंगे।")
@@ -86,21 +86,21 @@ def page_has_bot_message(page):
     return False
 
 def human_like_interaction(page):
-    """मोबाइल यूज़र जैसी हरकतें (माउस ही सही)"""
+    """टैबलेट यूज़र की तरह हरकतें (माउस क्लिक + स्क्रॉल)"""
     try:
-        page.mouse.move(random.randint(50, 350), random.randint(300, 500))
+        page.mouse.move(random.randint(100, 700), random.randint(200, 800))
         time.sleep(random.uniform(0.2, 0.5))
-        page.mouse.click(random.randint(100, 300), random.randint(400, 600))
+        page.mouse.click(random.randint(200, 600), random.randint(400, 700))
         time.sleep(random.uniform(0.2, 0.5))
-        page.mouse.wheel(0, random.randint(200, 400))
+        page.mouse.wheel(0, random.randint(200, 500))
         time.sleep(random.uniform(0.2, 0.5))
-        page.mouse.wheel(0, -random.randint(50, 150))
+        page.mouse.wheel(0, -random.randint(100, 300))
         time.sleep(random.uniform(0.1, 0.3))
     except:
         pass
 
-def force_mobile_video_interaction(page):
-    """YouTube player को अनम्यूट करें और क्वालिटी बदलने का नाटक करें"""
+def force_video_unmute(page):
+    """YouTube player को अनम्यूट करें और क्वालिटी बदलने का इशारा करें (ड्रॉप रोकथाम के लिए)"""
     try:
         page.evaluate("""
             () => {
@@ -110,7 +110,7 @@ def force_mobile_video_interaction(page):
                         iframe.contentWindow.postMessage('{"event":"command","func":"unMute","args":""}','*');
                         setTimeout(() => {
                             iframe.contentWindow.postMessage('{"event":"command","func":"setPlaybackQuality","args":"hd720"}','*');
-                        }, 3000);
+                        }, 4000);
                     } catch(e) {}
                 }
             }
@@ -164,10 +164,10 @@ def run_machine():
                 available_configs.remove(config_file)
                 continue
 
-            # Android mobile viewport + Chrome UA
+            # --- टैबलेट सेटिंग्स (iPad Safari) ---
             context = browser.new_context(
-                viewport={"width": 412, "height": 915},   # ✅ Android normal
-                user_agent="Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.5845.163 Mobile Safari/537.36",
+                viewport={"width": 820, "height": 1180},   # iPad जैसा फील
+                user_agent="Mozilla/5.0 (iPad; CPU OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1",
                 ignore_https_errors=True
             )
             page = context.new_page()
@@ -176,7 +176,7 @@ def run_machine():
                 start_time = time.time()
                 page.goto(TARGET_URL, wait_until="domcontentloaded", timeout=60000)
                 human_like_interaction(page)
-                # 15 सेकंड रुकें (जैसे माँगा)
+                # 15 सेकंड का इंतज़ार (जैसा आपने कहा)
                 page.wait_for_timeout(15000)
                 human_like_interaction(page)
 
@@ -187,17 +187,19 @@ def run_machine():
                     available_configs.remove(config_file)
                     continue
 
-                # प्ले बटन पर क्लिक
+                # --- YouTube के प्ले बटन पर क्लिक ---
                 youtube_frame = page.frame_locator("iframe[src*='youtube.com/embed'], iframe[src*='youtube-nocookie.com/embed']")
                 play_btn = youtube_frame.locator("button.ytp-large-play-button, .ytp-cued-thumbnail-overlay")
                 if play_btn.count() > 0:
                     play_btn.first.click(timeout=5000)
-                    print("▶️ प्ले बटन क्लिक")
+                    print("▶️ प्ले बटन क्लिक किया")
                 else:
-                    print("▶️ ऑटोप्ले संभव")
+                    # अगर प्ले बटन नहीं मिला (शायद ऑटोप्ले), तो body पर क्लिक
+                    youtube_frame.locator("body").click()
+                    print("▶️ शायद ऑटोप्ले, बॉडी क्लिक")
 
                 time.sleep(2)
-                force_mobile_video_interaction(page)
+                force_video_unmute(page)        # अनम्यूट + क्वालिटी
                 human_like_interaction(page)
 
                 # 55 सेकंड पर स्क्रीनशॉट
@@ -208,7 +210,7 @@ def run_machine():
                     f"🤖 मशीन {MACHINE_ID}\n"
                     f"🔄 लूप: {completed_loops+1}/{LOOP_COUNT}\n"
                     f"🌐 IP: {current_ip}\n"
-                    f"📱 Android व्यू"
+                    f"📟 टैबलेट व्यू"
                 )
                 send_screenshot_to_telegram(page, caption)
 
@@ -217,7 +219,7 @@ def run_machine():
                 if elapsed < 60:
                     time.sleep(60 - elapsed)
 
-                # अच्छे IP को आगे भी प्रयोग करें
+                # अच्छे IP को दोबारा प्रयोग के लिए लिस्ट में अंत में डालें
                 available_configs.remove(config_file)
                 available_configs.append(config_file)
                 completed_loops += 1
@@ -234,7 +236,7 @@ def run_machine():
                 available_configs.remove(config_file)
             finally:
                 context.close()
-                time.sleep(5)   # ✅ हर लूप के बाद 5 सेकंड की साँस
+                time.sleep(5)   # लूप्स के बीच 5 सेकंड का ठहराव
 
         browser.close()
         disconnect_vpn()
