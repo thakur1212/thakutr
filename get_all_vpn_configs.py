@@ -3,9 +3,6 @@ import base64
 import re
 import random
 import sys
-import os
-import csv
-import io
 from bs4 import BeautifulSoup
 
 def fetch_vpngate():
@@ -72,10 +69,8 @@ def fetch_freevpndb():
             continue
     return configs
 
-# नया स्रोत: ProtonVPN के कुछ फ्री सर्वर (अगर उपलब्ध हों)
 def fetch_protonvpn_free():
     configs = []
-    # ProtonVPN मुफ्त सर्वरों की लिस्ट (ये static हैं, समय-समय पर बदल सकती हैं)
     proton_servers = [
         "https://raw.githubusercontent.com/ProtonVPN/scripts/master/ovpn/free-us.ovpn",
         "https://raw.githubusercontent.com/ProtonVPN/scripts/master/ovpn/free-nl.ovpn",
@@ -93,13 +88,13 @@ def fetch_protonvpn_free():
 
 if __name__ == "__main__":
     all_configs = []
-    print("📥 VPNGate से configs ला रहे हैं...")
+    print("📥 VPNGate से...")
     all_configs.extend(fetch_vpngate())
-    print("📥 VPNBook से configs ला रहे हैं...")
+    print("📥 VPNBook से...")
     all_configs.extend(fetch_vpnbook())
-    print("📥 FreeVPN.se से US configs ला रहे हैं...")
+    print("📥 FreeVPN.se से...")
     all_configs.extend(fetch_freevpndb())
-    print("📥 ProtonVPN free servers ला रहे हैं...")
+    print("📥 ProtonVPN फ्री सर्वर...")
     all_configs.extend(fetch_protonvpn_free())
 
     seen = set()
@@ -114,9 +109,8 @@ if __name__ == "__main__":
             unique.append(cfg)
 
     random.shuffle(unique)
-
     if not unique:
-        print("❌ कोई VPN config नहीं मिली।")
+        print("❌ कोई config नहीं मिली।")
         sys.exit(1)
 
     max_save = min(len(unique), 100)
@@ -124,4 +118,4 @@ if __name__ == "__main__":
         fname = f"config_{i+1}.ovpn"
         with open(fname, "w") as f:
             f.write(unique[i])
-    print(f"✅ कुल {max_save} unique configs सेव हुईं।")
+    print(f"✅ {max_save} configs सेव हुईं।")
