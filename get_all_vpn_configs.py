@@ -8,7 +8,6 @@ import csv
 import io
 from bs4 import BeautifulSoup
 
-# ---------- VPNGate ----------
 def fetch_vpngate():
     configs = []
     url = "https://www.vpngate.net/api/iphone/"
@@ -35,14 +34,12 @@ def fetch_vpngate():
         print(f"⚠️ VPNGate error: {e}")
     return configs
 
-# ---------- VPNBook ----------
 def fetch_vpnbook():
     configs = []
     url = "https://www.vpnbook.com/freevpn"
     try:
         resp = requests.get(url, timeout=15, headers={"User-Agent": "Mozilla/5.0"})
         soup = BeautifulSoup(resp.text, 'html.parser')
-        # extract ovpn file links
         ovpn_links = [a['href'] for a in soup.find_all('a', href=True) if '.ovpn' in a['href']]
         for link in ovpn_links:
             if not link.startswith('http'):
@@ -58,7 +55,6 @@ def fetch_vpnbook():
         print(f"⚠️ VPNBook error: {e}")
     return configs
 
-# ---------- FreeVPN.se (US Servers) ----------
 def fetch_freevpndb():
     configs = []
     urls = [
@@ -85,7 +81,6 @@ if __name__ == "__main__":
     print("📥 FreeVPN.se से US configs ला रहे हैं...")
     all_configs.extend(fetch_freevpndb())
 
-    # डुप्लीकेट हटाएँ (remote server के आधार पर)
     seen = set()
     unique = []
     for cfg in all_configs:
@@ -99,11 +94,10 @@ if __name__ == "__main__":
 
     random.shuffle(unique)
 
-    if len(unique) == 0:
+    if not unique:
         print("❌ कोई VPN config नहीं मिली।")
         sys.exit(1)
 
-    # 100 configs तक सेव करें (जितने मिलें, फ़ाइलों में)
     max_save = min(len(unique), 100)
     for i in range(max_save):
         fname = f"config_{i+1}.ovpn"
