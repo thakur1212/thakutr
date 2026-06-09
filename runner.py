@@ -5,6 +5,7 @@ import random
 import requests
 from playwright.sync_api import sync_playwright
 
+# इनपुट
 TARGET_URL = sys.argv[1]
 LOOP_COUNT = int(sys.argv[2])
 CHAT_ID = sys.argv[3]
@@ -26,17 +27,13 @@ def send_screenshot_to_telegram(page, text_msg):
         print(f"❌ स्क्रीनशॉट एरर: {e}")
 
 def run_machine():
-    print(f"🎰 मशीन {MACHINE_ID} (VPN मोड) | लूप्स: {LOOP_COUNT}")
+    print(f"🎰 मशीन {MACHINE_ID} (VPN + प्ले बटन क्लिक) | लूप्स: {LOOP_COUNT}")
 
     with sync_playwright() as p:
-        browser = p.firefox.launch(
-            headless=False,
-            args=["--no-sandbox"]
-        )
+        browser = p.firefox.launch(headless=False, args=["--no-sandbox"])
 
         for i in range(1, LOOP_COUNT + 1):
             print(f"\n--- मशीन {MACHINE_ID} | लूप {i}/{LOOP_COUNT} ---")
-            # सीधा सादा context, कोई प्रॉक्सी नहीं
             context = browser.new_context(
                 viewport={"width": 1280, "height": 720},
                 user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:115.0) Gecko/20100101 Firefox/115.0",
@@ -46,38 +43,41 @@ def run_machine():
 
             try:
                 start_time = time.time()
+
+                # 1. वेबसाइट खोलें
                 print("🌐 पेज लोड हो रहा है...")
                 page.goto(TARGET_URL, wait_until="domcontentloaded", timeout=60000)
-                time.sleep(random.uniform(2, 5))
 
-                print("▶️ वीडियो प्ले कर रहा हूँ (JS)...")
-                try:
-                    page.evaluate("""
-                        async () => {
-                            const iframes = document.querySelectorAll('iframe[src*="youtube.com/embed"]');
-                            for (let iframe of iframes) {
-                                try {
-                                    const video = iframe.contentWindow.document.querySelector('video');
-                                    if (video) {
-                                        await video.play();
-                                        return 'played';
-                                    }
-                                } catch(e) {
-                                    iframe.contentWindow.postMessage('{"event":"command","func":"playVideo","args":""}', '*');
-                                }
-                            }
-                        }
-                    """)
-                except:
-                    pass
+                # 2. ठीक 10 सेकंड इंतज़ार (जैसा आपने कहा)
+                print("⏳ 10 सेकंड का इंतज़ार...")
+                page.wait_for_timeout(10000)
 
-                # 25 सेकंड पर स्क्रीनशॉट
-                elapsed = time.time() - start_time
-                if elapsed < 25:
-                    time.sleep(25 - elapsed)
-                send_screenshot_to_telegram(page, f"🤖 मशीन {MACHINE_ID}\n🔄 लूप: {i}/{LOOP_COUNT}\n🌐 VPN (OpenVPN)")
+                # 3. यूट्यूब iframe में जाकर बड़े प्ले बटन पर क्लिक करें
+                print("🔍 यूट्यूब प्ले बटन ढूँढ रहा हूँ...")
+                youtube_frame = page.frame_locator("iframe[src*='youtube.com/embed']")
+                
+                # बड़ा प्ले बटन (लाल/काला तीर वाला)
+                play_button = youtube_frame.locator("button.ytp-large-play-button, .ytp-cued-thumbnail-overlay")
+                
+                if play_button.count() > 0:
+                    play_button.first.hover()
+                    page.wait_for_timeout(500)  # hover effect के लिए
+                    play_button.first.click(timeout=5000)
+                    print("▶️ प्ले बटन पर क्लिक किया!")
+                else:
+                    # अगर बटन न मिले तो बॉडी पर क्लिक (कभी-कभी यूट्यूब ऑटोप्ले नहीं होता)
+                    print("⚠️ बटन नहीं मिला, बॉडी पर क्लिक कर रहा हूँ...")
+                    youtube_frame.locator("body").click()
 
-                # 31 सेकंड पूरे करें
+                # 4. अब 25वें सेकंड तक इंतज़ार (10 सेकंड पहले हो चुके हैं, 15 और रुकें)
+                wait_until_25 = max(0, 25 - (time.time() - start_time))
+                time.sleep(wait_until_25)
+                send_screenshot_to_telegram(
+                    page,
+                    f"🤖 मशीन {MACHINE_ID}\n🔄 लूप: {i}/{LOOP_COUNT}\n▶️ प्ले बटन क्लिक किया"
+                )
+
+                # 5. 31 सेकंड पूरे करें
                 elapsed = time.time() - start_time
                 if elapsed < 31:
                     time.sleep(31 - elapsed)
