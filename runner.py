@@ -61,11 +61,11 @@ def connect_vpn(config_file):
             new_ip = requests.get("https://ifconfig.me", timeout=5).text.strip()
             if new_ip and new_ip != old_ip:
                 print(f"✅ IP बदला: {new_ip}")
-                return True
+                return new_ip   # IP लौटाएँ
         except:
             pass
     print("⚠️ IP नहीं बदला, फिर भी आगे बढ़ेंगे।")
-    return False
+    return "Unknown"
 
 def page_has_bot_message(page):
     try:
@@ -86,14 +86,12 @@ def page_has_bot_message(page):
     return False
 
 def human_like_interaction(page):
-    """मोबाइल यूज़र जैसी माउस हरकतें (टच की जगह)"""
+    """मोबाइल यूज़र जैसी हरकतें (माउस ही सही)"""
     try:
-        # पेज पर कहीं हल्का क्लिक (जैसे स्क्रीन टच)
         page.mouse.move(random.randint(50, 350), random.randint(300, 500))
         time.sleep(random.uniform(0.2, 0.5))
         page.mouse.click(random.randint(100, 300), random.randint(400, 600))
         time.sleep(random.uniform(0.2, 0.5))
-        # स्क्रॉल (नीचे फिर ऊपर)
         page.mouse.wheel(0, random.randint(200, 400))
         time.sleep(random.uniform(0.2, 0.5))
         page.mouse.wheel(0, -random.randint(50, 150))
@@ -102,13 +100,8 @@ def human_like_interaction(page):
         pass
 
 def force_mobile_video_interaction(page):
-    """
-    YouTube player के अंदर इंसानी हरकतें:
-    - अनम्यूट करना
-    - क्वालिटी बदलने का नाटक
-    """
+    """YouTube player को अनम्यूट करें और क्वालिटी बदलने का नाटक करें"""
     try:
-        # वीडियो अनम्यूट और क्वालिटी
         page.evaluate("""
             () => {
                 const iframes = document.querySelectorAll('iframe[src*="youtube.com/embed"], iframe[src*="youtube-nocookie.com/embed"]');
@@ -154,7 +147,6 @@ def run_machine():
     print(f"🎰 मशीन {MACHINE_ID} | उपलब्ध IP: {len(available_configs)} | लक्ष्य लूप: {LOOP_COUNT}")
 
     with sync_playwright() as p:
-        # Firefox ब्राउज़र लॉन्च
         browser = p.firefox.launch(headless=False, args=["--no-sandbox"])
 
         completed_loops = 0
@@ -165,16 +157,17 @@ def run_machine():
 
             config_file = available_configs[0]
             disconnect_vpn()
-            if not connect_vpn(config_file):
+            current_ip = connect_vpn(config_file)
+            if current_ip == "Unknown":
                 blacklist.add(config_file)
                 save_blacklist(blacklist)
                 available_configs.remove(config_file)
                 continue
 
-            # --- महत्वपूर्ण बदलाव: मोबाइल एमुलेशन Firefox में बिना isMobile के ---
+            # Android mobile viewport + Chrome UA
             context = browser.new_context(
-                viewport={"width": 390, "height": 844},                     # iPhone 14 Pro
-                user_agent="Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1",
+                viewport={"width": 412, "height": 915},   # ✅ Android normal
+                user_agent="Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.5845.163 Mobile Safari/537.36",
                 ignore_https_errors=True
             )
             page = context.new_page()
@@ -183,7 +176,9 @@ def run_machine():
                 start_time = time.time()
                 page.goto(TARGET_URL, wait_until="domcontentloaded", timeout=60000)
                 human_like_interaction(page)
-                page.wait_for_timeout(10000)  # वीडियो लोड
+                # 15 सेकंड रुकें (जैसे माँगा)
+                page.wait_for_timeout(15000)
+                human_like_interaction(page)
 
                 if page_has_bot_message(page):
                     print(f"🚫 Bot पेज मिला! IP: {config_file} ब्लैकलिस्ट कर रहे हैं।")
@@ -192,36 +187,41 @@ def run_machine():
                     available_configs.remove(config_file)
                     continue
 
-                # --- प्ले बटन पर क्लिक (टच की जगह माउस क्लिक) ---
+                # प्ले बटन पर क्लिक
                 youtube_frame = page.frame_locator("iframe[src*='youtube.com/embed'], iframe[src*='youtube-nocookie.com/embed']")
                 play_btn = youtube_frame.locator("button.ytp-large-play-button, .ytp-cued-thumbnail-overlay")
                 if play_btn.count() > 0:
-                    play_btn.first.click(timeout=5000)   # .click() सही है
-                    print("▶️ प्ले बटन क्लिक किया")
+                    play_btn.first.click(timeout=5000)
+                    print("▶️ प्ले बटन क्लिक")
                 else:
-                    print("▶️ वीडियो शायद ऑटोप्ले हो गई")
+                    print("▶️ ऑटोप्ले संभव")
 
                 time.sleep(2)
                 force_mobile_video_interaction(page)
                 human_like_interaction(page)
 
-                # 50 सेकंड पर स्क्रीनशॉट (कुल 60 सेकंड का व्यू)
-                wait = 50 - (time.time() - start_time)
-                if wait > 0:
-                    time.sleep(wait)
-                send_screenshot_to_telegram(page,
-                    f"🤖 मशीन {MACHINE_ID}\n🔄 लूप: {completed_loops+1}/{LOOP_COUNT}\n📱 मोबाइल UA")
+                # 55 सेकंड पर स्क्रीनशॉट
+                wait_55 = 55 - (time.time() - start_time)
+                if wait_55 > 0:
+                    time.sleep(wait_55)
+                caption = (
+                    f"🤖 मशीन {MACHINE_ID}\n"
+                    f"🔄 लूप: {completed_loops+1}/{LOOP_COUNT}\n"
+                    f"🌐 IP: {current_ip}\n"
+                    f"📱 Android व्यू"
+                )
+                send_screenshot_to_telegram(page, caption)
 
                 # 60 सेकंड पूरे करें
                 elapsed = time.time() - start_time
                 if elapsed < 60:
                     time.sleep(60 - elapsed)
 
-                # अच्छे IP को रीसायकल करें
+                # अच्छे IP को आगे भी प्रयोग करें
                 available_configs.remove(config_file)
                 available_configs.append(config_file)
                 completed_loops += 1
-                print(f"✅ लूप {completed_loops} सफल (IP: {config_file})")
+                print(f"✅ लूप {completed_loops} सफल (IP: {current_ip})")
 
             except Exception as e:
                 print(f"❌ एरर: {e}")
@@ -234,7 +234,7 @@ def run_machine():
                 available_configs.remove(config_file)
             finally:
                 context.close()
-                time.sleep(0.5)
+                time.sleep(5)   # ✅ हर लूप के बाद 5 सेकंड की साँस
 
         browser.close()
         disconnect_vpn()
