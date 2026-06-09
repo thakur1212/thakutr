@@ -85,12 +85,10 @@ def page_has_bot_message(page):
         pass
     return False
 
-def human_like_interaction(page):
-    """टैबलेट यूज़र की तरह हरकतें (माउस क्लिक + स्क्रॉल)"""
+def only_scroll_and_move(page):
+    """कोई क्लिक नहीं, सिर्फ़ माउस हिलाना और स्क्रॉल करना"""
     try:
         page.mouse.move(random.randint(100, 700), random.randint(200, 800))
-        time.sleep(random.uniform(0.2, 0.5))
-        page.mouse.click(random.randint(200, 600), random.randint(400, 700))
         time.sleep(random.uniform(0.2, 0.5))
         page.mouse.wheel(0, random.randint(200, 500))
         time.sleep(random.uniform(0.2, 0.5))
@@ -99,8 +97,8 @@ def human_like_interaction(page):
     except:
         pass
 
-def force_video_unmute(page):
-    """YouTube player को अनम्यूट करें और क्वालिटी बदलने का इशारा करें (ड्रॉप रोकथाम के लिए)"""
+def unmute_and_quality_natak(page):
+    """YouTube player को अनम्यूट करें और क्वालिटी बदलने का दिखावा करें"""
     try:
         page.evaluate("""
             () => {
@@ -164,9 +162,9 @@ def run_machine():
                 available_configs.remove(config_file)
                 continue
 
-            # --- टैबलेट सेटिंग्स (iPad Safari) ---
+            # टैबलेट सेटिंग्स (iPad)
             context = browser.new_context(
-                viewport={"width": 820, "height": 1180},   # iPad जैसा फील
+                viewport={"width": 820, "height": 1180},
                 user_agent="Mozilla/5.0 (iPad; CPU OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1",
                 ignore_https_errors=True
             )
@@ -175,10 +173,10 @@ def run_machine():
             try:
                 start_time = time.time()
                 page.goto(TARGET_URL, wait_until="domcontentloaded", timeout=60000)
-                human_like_interaction(page)
-                # 15 सेकंड का इंतज़ार (जैसा आपने कहा)
+                only_scroll_and_move(page)
+                # 15 सेकंड इंतज़ार (जैसा आपने कहा)
                 page.wait_for_timeout(15000)
-                human_like_interaction(page)
+                only_scroll_and_move(page)
 
                 if page_has_bot_message(page):
                     print(f"🚫 Bot पेज मिला! IP: {config_file} ब्लैकलिस्ट कर रहे हैं।")
@@ -187,20 +185,18 @@ def run_machine():
                     available_configs.remove(config_file)
                     continue
 
-                # --- YouTube के प्ले बटन पर क्लिक ---
+                # ✅ सिर्फ़ एक क्लिक – YouTube के प्ले बटन पर
                 youtube_frame = page.frame_locator("iframe[src*='youtube.com/embed'], iframe[src*='youtube-nocookie.com/embed']")
                 play_btn = youtube_frame.locator("button.ytp-large-play-button, .ytp-cued-thumbnail-overlay")
                 if play_btn.count() > 0:
                     play_btn.first.click(timeout=5000)
-                    print("▶️ प्ले बटन क्लिक किया")
+                    print("▶️ प्ले बटन क्लिक किया (एकमात्र क्लिक)")
                 else:
-                    # अगर प्ले बटन नहीं मिला (शायद ऑटोप्ले), तो body पर क्लिक
-                    youtube_frame.locator("body").click()
-                    print("▶️ शायद ऑटोप्ले, बॉडी क्लिक")
+                    print("⚠️ प्ले बटन नहीं मिला – शायद ऑटोप्ले, कोई क्लिक नहीं करेंगे।")
 
                 time.sleep(2)
-                force_video_unmute(page)        # अनम्यूट + क्वालिटी
-                human_like_interaction(page)
+                unmute_and_quality_natak(page)   # अनम्यूट + क्वालिटी का नाटक
+                only_scroll_and_move(page)
 
                 # 55 सेकंड पर स्क्रीनशॉट
                 wait_55 = 55 - (time.time() - start_time)
@@ -210,7 +206,7 @@ def run_machine():
                     f"🤖 मशीन {MACHINE_ID}\n"
                     f"🔄 लूप: {completed_loops+1}/{LOOP_COUNT}\n"
                     f"🌐 IP: {current_ip}\n"
-                    f"📟 टैबलेट व्यू"
+                    f"📟 टैबलेट • एक क्लिक"
                 )
                 send_screenshot_to_telegram(page, caption)
 
@@ -219,7 +215,7 @@ def run_machine():
                 if elapsed < 60:
                     time.sleep(60 - elapsed)
 
-                # अच्छे IP को दोबारा प्रयोग के लिए लिस्ट में अंत में डालें
+                # अच्छे IP को दोबारा इस्तेमाल के लिए आखिर में डालें
                 available_configs.remove(config_file)
                 available_configs.append(config_file)
                 completed_loops += 1
@@ -236,7 +232,7 @@ def run_machine():
                 available_configs.remove(config_file)
             finally:
                 context.close()
-                time.sleep(5)   # लूप्स के बीच 5 सेकंड का ठहराव
+                time.sleep(5)   # लूप खत्म होने पर 5 सेकंड रुकें
 
         browser.close()
         disconnect_vpn()
