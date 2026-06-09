@@ -12,8 +12,11 @@ CHAT_ID = sys.argv[3]
 BOT_TOKEN = sys.argv[4]
 MACHINE_ID = sys.argv[5]
 
-# हमारी सेव की गई config फ़ाइलों की संख्या (get_vpn_configs.py में 10 सेट की है)
-TOTAL_VPN_CONFIGS = 10
+# मौजूदा config फ़ाइलों की सूची (हम मानते हैं कि config_1.ovpn ... config_N.ovpn मौजूद हैं)
+VPN_CONFIGS = sorted(
+    [f for f in os.listdir() if f.startswith('config_') and f.endswith('.ovpn')],
+    key=lambda x: int(x.split('_')[1].split('.')[0])
+)
 
 def send_screenshot_to_telegram(page, text_msg):
     screenshot_path = f"ss_{MACHINE_ID}.png"
@@ -30,35 +33,46 @@ def send_screenshot_to_telegram(page, text_msg):
         print(f"❌ स्क्रीनशॉट एरर: {e}")
 
 def disconnect_vpn():
-    """पुरानी OpenVPN प्रक्रिया को मारें"""
     os.system("sudo killall openvpn 2>/dev/null")
-    time.sleep(2)
+    time.sleep(1)
 
 def connect_vpn(config_file):
-    """नई OpenVPN कॉन्फ़िग से कनेक्ट करें और IP चेंज होने का इंतज़ार करें"""
-    print(f"🔌 VPN कनेक्ट कर रहे हैं: {config_file}")
-    cmd = f"sudo openvpn --config {config_file} --daemon --log /tmp/vpn.log"
-    os.system(cmd)
-    # इंतज़ार करें कि IP बदल जाए
-    original_ip = ""
+    print(f"🔌 VPN कनेक्ट: {config_file}")
+    os.system(f"sudo openvpn --config {config_file} --daemon --log /tmp/vpn.log")
+    # IP बदलने का इंतज़ार
+    old_ip = ""
     try:
-        original_ip = requests.get("https://ifconfig.me", timeout=5).text.strip()
+        old_ip = requests.get("https://ifconfig.me", timeout=5).text.strip()
     except:
         pass
-    for i in range(20):
+    for i in range(15):
         time.sleep(2)
         try:
-            current_ip = requests.get("https://ifconfig.me", timeout=5).text.strip()
-            if current_ip != original_ip and current_ip:
-                print(f"✅ VPN कनेक्ट! New IP: {current_ip}")
+            new_ip = requests.get("https://ifconfig.me", timeout=5).text.strip()
+            if new_ip and new_ip != old_ip:
+                print(f"✅ नया IP: {new_ip}")
                 return True
         except:
             pass
-    print("⚠️ IP बदल नहीं पाया, फिर भी जारी रखते हैं।")
+    print("⚠️ IP नहीं बदला, फिर भी चलाते हैं।")
     return False
 
+def human_touch(page):
+    """पेज पर माउस हिलाएँ, स्क्रॉल करें"""
+    try:
+        page.mouse.move(random.randint(100, 900), random.randint(100, 500))
+        time.sleep(random.uniform(0.3, 0.8))
+        page.mouse.wheel(0, random.randint(100, 300))
+        time.sleep(random.uniform(0.2, 0.5))
+    except:
+        pass
+
 def run_machine():
-    print(f"🎰 मशीन {MACHINE_ID} (Dynamic VPN) | लूप्स: {LOOP_COUNT}")
+    print(f"🎰 मशीन {MACHINE_ID} (Per‑Loop VPN + Anti‑Detect) | लूप्स: {LOOP_COUNT}")
+
+    if not VPN_CONFIGS:
+        print("❌ कोई VPN config फ़ाइल नहीं मिली!")
+        return
 
     with sync_playwright() as p:
         browser = p.firefox.launch(headless=False, args=["--no-sandbox"])
@@ -66,22 +80,12 @@ def run_machine():
         for i in range(1, LOOP_COUNT + 1):
             print(f"\n--- मशीन {MACHINE_ID} | लूप {i}/{LOOP_COUNT} ---")
 
-            # VPN कनेक्शन बदलें (हर 3 लूप में, या जब लूप नंबर 1 हो)
-            if i == 1 or i % 3 == 0:
-                disconnect_vpn()
-                # config फ़ाइल साइकल करें (1 से 10)
-                config_num = ((i-1) % TOTAL_VPN_CONFIGS) + 1
-                config_file = f"config_{config_num}.ovpn"
-                if not os.path.exists(config_file):
-                    # फ़ॉलबैक: कोई भी config लें
-                    existing = [f for f in os.listdir() if f.startswith('config_') and f.endswith('.ovpn')]
-                    if existing:
-                        config_file = existing[0]
-                    else:
-                        print("❌ कोई VPN config नहीं मिली!")
-                        break
-                connect_vpn(config_file)
+            # हर लूप से पहले VPN बदलें
+            disconnect_vpn()
+            config_file = VPN_CONFIGS[(i-1) % len(VPN_CONFIGS)]
+            connect_vpn(config_file)
 
+            # नया कॉन्टेक्स्ट (पिछली कुकीज़/स्टोरेज साफ़)
             context = browser.new_context(
                 viewport={"width": 1280, "height": 720},
                 user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:115.0) Gecko/20100101 Firefox/115.0",
@@ -91,30 +95,71 @@ def run_machine():
 
             try:
                 start_time = time.time()
+
+                # 1. साइट खोलें
                 print("🌐 पेज लोड...")
                 page.goto(TARGET_URL, wait_until="domcontentloaded", timeout=60000)
+                human_touch(page)
 
+                # 2. 10 सेकंड रुकें (वीडियो प्लेयर तैयार होने के लिए)
                 print("⏳ 10 सेकंड इंतज़ार...")
                 page.wait_for_timeout(10000)
+                human_touch(page)
 
+                # 3. प्ले बटन क्लिक
                 print("🔍 प्ले बटन ढूँढ रहा हूँ...")
                 youtube_frame = page.frame_locator("iframe[src*='youtube.com/embed']")
                 play_btn = youtube_frame.locator("button.ytp-large-play-button, .ytp-cued-thumbnail-overlay")
+                clicked = False
                 if play_btn.count() > 0:
                     play_btn.first.hover()
-                    page.wait_for_timeout(500)
+                    page.wait_for_timeout(random.randint(200, 500))
                     play_btn.first.click(timeout=5000)
-                    print("▶️ क्लिक किया!")
+                    print("▶️ बटन क्लिक किया!")
+                    clicked = True
                 else:
                     youtube_frame.locator("body").click()
 
-                # 25 सेकंड पर स्क्रीनशॉट
+                # 4. वीडियो चल रही है या नहीं, चेक करें, न चल रही हो तो JS से प्ले कराएँ
+                time.sleep(2)  # क्लिक के बाद थोड़ा इंतज़ार
+                playing = page.evaluate("""() => {
+                    const iframes = document.querySelectorAll('iframe[src*="youtube.com/embed"]');
+                    for (let iframe of iframes) {
+                        try {
+                            const video = iframe.contentWindow.document.querySelector('video');
+                            if (video && video.currentTime > 0 && !video.paused) return true;
+                        } catch(e) {}
+                    }
+                    return false;
+                }""")
+                
+                if not playing:
+                    print("⚠️ वीडियो नहीं चली, फोर्स प्ले कर रहा हूँ...")
+                    try:
+                        page.evaluate("""
+                            () => {
+                                const iframes = document.querySelectorAll('iframe[src*="youtube.com/embed"]');
+                                for (let iframe of iframes) {
+                                    try {
+                                        const video = iframe.contentWindow.document.querySelector('video');
+                                        if (video) video.play();
+                                    } catch(e) {
+                                        iframe.contentWindow.postMessage('{"event":"command","func":"playVideo","args":""}', '*');
+                                    }
+                                }
+                            }
+                        """)
+                    except:
+                        pass
+
+                # 5. 25 सेकंड पर स्क्रीनशॉट
                 elapsed = time.time() - start_time
                 if elapsed < 25:
                     time.sleep(25 - elapsed)
-                send_screenshot_to_telegram(page, f"🤖 मशीन {MACHINE_ID}\n🔄 लूप: {i}/{LOOP_COUNT}\n🌐 Dynamic VPN")
+                send_screenshot_to_telegram(page,
+                    f"🤖 मशीन {MACHINE_ID}\n🔄 लूप: {i}/{LOOP_COUNT}\n🌐 नया IP हर बार")
 
-                # 31 सेकंड पूरे करें
+                # 6. 31 सेकंड पूरे करें
                 elapsed = time.time() - start_time
                 if elapsed < 31:
                     time.sleep(31 - elapsed)
@@ -128,14 +173,10 @@ def run_machine():
                     pass
             finally:
                 context.close()
-                time.sleep(1)
+                time.sleep(0.5)
 
         browser.close()
         disconnect_vpn()
 
 if __name__ == "__main__":
-    # VPN config फ़ाइलों की मौजूदगी चेक करें
-    if not any(f.startswith('config_') for f in os.listdir('.')):
-        print("❌ कोई VPN config फ़ाइल नहीं! पहले get_vpn_configs.py चलाएँ।")
-        sys.exit(1)
     run_machine()
