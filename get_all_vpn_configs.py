@@ -72,6 +72,25 @@ def fetch_freevpndb():
             continue
     return configs
 
+# नया स्रोत: ProtonVPN के कुछ फ्री सर्वर (अगर उपलब्ध हों)
+def fetch_protonvpn_free():
+    configs = []
+    # ProtonVPN मुफ्त सर्वरों की लिस्ट (ये static हैं, समय-समय पर बदल सकती हैं)
+    proton_servers = [
+        "https://raw.githubusercontent.com/ProtonVPN/scripts/master/ovpn/free-us.ovpn",
+        "https://raw.githubusercontent.com/ProtonVPN/scripts/master/ovpn/free-nl.ovpn",
+        "https://raw.githubusercontent.com/ProtonVPN/scripts/master/ovpn/free-jp.ovpn",
+    ]
+    for url in proton_servers:
+        try:
+            resp = requests.get(url, timeout=10)
+            config = resp.text.replace('\r\n', '\n')
+            if 'remote' in config:
+                configs.append(config)
+        except:
+            continue
+    return configs
+
 if __name__ == "__main__":
     all_configs = []
     print("📥 VPNGate से configs ला रहे हैं...")
@@ -80,6 +99,8 @@ if __name__ == "__main__":
     all_configs.extend(fetch_vpnbook())
     print("📥 FreeVPN.se से US configs ला रहे हैं...")
     all_configs.extend(fetch_freevpndb())
+    print("📥 ProtonVPN free servers ला रहे हैं...")
+    all_configs.extend(fetch_protonvpn_free())
 
     seen = set()
     unique = []
