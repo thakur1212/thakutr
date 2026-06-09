@@ -1,4 +1,4 @@
-name: VPN Runner (Auto Server)
+name: Dynamic VPN Runner
 
 on:
   repository_dispatch:
@@ -24,46 +24,10 @@ jobs:
         pip install playwright requests
         python -m playwright install --with-deps firefox
 
-    - name: Get VPN config (VPNGate or GitHub fallback)
-      run: python get_us_vpn.py
+    - name: Get multiple VPN configs (US + others)
+      run: python get_vpn_configs.py
 
-    - name: Connect VPN
-      run: |
-        if [ ! -s us.ovpn ]; then
-          echo "❌ us.ovpn खाली है!"
-          exit 1
-        fi
-        
-        echo "📄 Config preview (पहली 5 लाइनें):"
-        head -5 us.ovpn
-        
-        # OpenVPN कनेक्ट करें
-        sudo openvpn --config us.ovpn --daemon --log /tmp/vpn.log
-        
-        # IP बदलने का इंतज़ार
-        echo "⏳ VPN कनेक्ट होने का इंतज़ार..."
-        ORIGINAL_IP=$(curl -s --max-time 5 ifconfig.me)
-        echo "🔹 Original IP: $ORIGINAL_IP"
-        
-        VPN_CONNECTED=false
-        for i in $(seq 1 40); do
-          sleep 3
-          CURRENT_IP=$(curl -s --max-time 5 ifconfig.me)
-          if [ "$CURRENT_IP" != "$ORIGINAL_IP" ] && [ -n "$CURRENT_IP" ]; then
-            echo "✅ VPN कनेक्ट! नया IP: $CURRENT_IP"
-            VPN_CONNECTED=true
-            break
-          fi
-          echo "⏳ कोशिश $i/40... (IP: $CURRENT_IP)"
-        done
-        
-        if [ "$VPN_CONNECTED" = false ]; then
-          echo "⚠️ VPN शायद नहीं जुड़ा, लेकिन फिर भी बॉट चलाएँगे..."
-          echo "📋 VPN Log:"
-          tail -20 /tmp/vpn.log || true
-        fi
-
-    - name: Run bot inside Xvfb
+    - name: Run bot with dynamic VPN switching
       env:
         URL: ${{ github.event.client_payload.target_url }}
         VIEWS: ${{ github.event.client_payload.target_views }}
@@ -71,11 +35,9 @@ jobs:
         TOKEN: ${{ github.event.client_payload.bot_token }}
         MID: ${{ matrix.machine_id }}
       run: |
-        echo "🌐 Current IP: $(curl -s --max-time 5 ifconfig.me)"
+        # रनर को sudo पासवर्ड नहीं चाहिए (actions में sudo बिना पासवर्ड काम करता है)
         xvfb-run --server-args="-screen 0 1280x720x24" python runner.py "$URL" "$VIEWS" "$CHAT_ID" "$TOKEN" "$MID"
 
     - name: Cleanup VPN
       if: always()
-      run: |
-        sudo killall openvpn 2>/dev/null || true
-        echo "🧹 VPN बंद कर दिया।"
+      run: sudo killall openvpn || true
