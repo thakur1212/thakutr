@@ -55,7 +55,7 @@ def connect_vpn(config_file):
         old_ip = requests.get("https://ifconfig.me", timeout=5).text.strip()
     except:
         pass
-    for i in range(20):  # थोड़ा और इंतज़ार
+    for i in range(20):
         time.sleep(2)
         try:
             new_ip = requests.get("https://ifconfig.me", timeout=5).text.strip()
@@ -64,21 +64,18 @@ def connect_vpn(config_file):
                 return True
         except:
             pass
-    print("⚠️ IP नहीं बदला, फिर भी आगे बढ़ेंगे।")
+    print("⚠️ IP नहीं बदला, पर आगे बढ़ते हैं।")
     return False
 
 def page_has_bot_message(page):
-    """पूरे पेज का टेक्स्ट चेक करें कि कहीं 'not a robot' जैसा कुछ तो नहीं"""
     try:
-        text = page.text_content("*")  # सारा टेक्स्ट निकालें
+        text = page.text_content("*")
         if re.search(r"not a robot|are you a robot|sign in to confirm|you are a bot|robot check", text, re.IGNORECASE):
             return True
     except:
         pass
-    # कभी-कभी iframe के अंदर हो सकता है
     try:
-        frames = page.frames
-        for frame in frames:
+        for frame in page.frames:
             if frame.url != page.url:
                 ftext = frame.text_content("*")
                 if re.search(r"not a robot|are you a robot|sign in to confirm|you are a bot|robot check", ftext, re.IGNORECASE):
@@ -87,24 +84,30 @@ def page_has_bot_message(page):
         pass
     return False
 
-def human_behavior(page):
-    """पेज पर असली इंसान जैसी हरकतें"""
+def human_touch_mobile(page):
+    """मोबाइल डिवाइस पर इंसानी हरकतें (टैप, स्क्रॉल, स्वाइप)"""
     try:
-        # माउस को कुछ जगहों पर ले जाएँ
+        # कुछ टैप
         for _ in range(random.randint(1, 3)):
-            page.mouse.move(random.randint(100, 1100), random.randint(100, 600))
-            time.sleep(random.uniform(0.2, 0.6))
-        # थोड़ा स्क्रॉल
-        page.mouse.wheel(0, random.randint(100, 400))
-        time.sleep(random.uniform(0.2, 0.5))
-        page.mouse.wheel(0, -random.randint(50, 200))
-        time.sleep(random.uniform(0.1, 0.3))
+            x = random.randint(50, 300)
+            y = random.randint(100, 700)
+            page.tap({"x": x, "y": y})
+            time.sleep(random.uniform(0.2, 0.5))
+        # स्क्रॉल
+        for _ in range(random.randint(1, 4)):
+            page.mouse.wheel(0, random.randint(200, 600))
+            time.sleep(random.uniform(0.3, 0.8))
+        # स्वाइप (टच ड्रैग)
+        page.mouse.move(random.randint(100, 300), random.randint(400, 600))
+        page.mouse.down()
+        page.mouse.move(random.randint(100, 300), random.randint(100, 300), steps=10)
+        page.mouse.up()
     except:
         pass
 
 def run_machine():
     if not VPN_CONFIGS:
-        print("❌ कोई VPN config फ़ाइल नहीं!")
+        print("❌ कोई VPN config नहीं!")
         return
 
     blacklist = load_blacklist()
@@ -113,34 +116,35 @@ def run_machine():
         print("❌ सभी configs ब्लैकलिस्ट हो चुकी हैं।")
         return
 
-    # हर मशीन के लिए अलग शफ़ल
     random.seed(MACHINE_ID * 1000 + int(time.time()))
     random.shuffle(available_configs)
 
-    print(f"🎰 मशीन {MACHINE_ID} | उपलब्ध IP: {len(available_configs)} | लक्ष्य लूप: {LOOP_COUNT}")
+    print(f"🎰 मशीन {MACHINE_ID} | लक्ष्य लूप: {LOOP_COUNT} | उपलब्ध IP: {len(available_configs)}")
 
     with sync_playwright() as p:
+        # मोबाइल ब्राउज़र (iPhone 14 Pro)
         browser = p.firefox.launch(headless=False, args=["--no-sandbox"])
 
         completed_loops = 0
         while completed_loops < LOOP_COUNT:
             if not available_configs:
-                print("❌ कोई और usable IP नहीं।")
+                print("❌ और कोई IP नहीं बचा।")
                 break
 
-            # अगला IP चुनें (हर बार अलग)
             config_file = available_configs[0]
             disconnect_vpn()
             if not connect_vpn(config_file):
-                # VPN नहीं जुड़ा तो इस config को ब्लैकलिस्ट करके अगली बार चुनें
                 blacklist.add(config_file)
                 save_blacklist(blacklist)
                 available_configs.remove(config_file)
                 continue
 
+            # मोबाइल कॉन्टेक्स्ट
             context = browser.new_context(
-                viewport={"width": 1280, "height": 720},
-                user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:115.0) Gecko/20100101 Firefox/115.0",
+                viewport={"width": 390, "height": 844},
+                user_agent="Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1",
+                is_mobile=True,
+                has_touch=True,
                 ignore_https_errors=True
             )
             page = context.new_page()
@@ -148,33 +152,30 @@ def run_machine():
             try:
                 start_time = time.time()
                 page.goto(TARGET_URL, wait_until="domcontentloaded", timeout=60000)
-                # इंसानी हरकतें
-                human_behavior(page)
-                # 10 सेकंड इंतज़ार (वीडियो प्लेयर के लिए)
-                page.wait_for_timeout(10000)
-                human_behavior(page)
+                human_touch_mobile(page)
 
-                # ----- बॉट डिटेक्शन चेक -----
+                # 10 सेकंड इंतज़ार (वीडियो प्लेयर)
+                page.wait_for_timeout(10000)
+                human_touch_mobile(page)
+
+                # बॉट चेक
                 if page_has_bot_message(page):
-                    print(f"🚫 Bot पेज मिला! IP: {config_file} ब्लैकलिस्ट कर रहे हैं।")
+                    print(f"🚫 Bot पेज! IP ब्लैकलिस्ट: {config_file}")
                     blacklist.add(config_file)
                     save_blacklist(blacklist)
                     available_configs.remove(config_file)
-                    # दोबारा कोशिश करने के लिए continue (लूप काउंट न बढ़े)
                     continue
 
                 # यूट्यूब प्ले बटन क्लिक
                 youtube_frame = page.frame_locator("iframe[src*='youtube.com/embed']")
                 play_btn = youtube_frame.locator("button.ytp-large-play-button, .ytp-cued-thumbnail-overlay")
                 if play_btn.count() > 0:
-                    play_btn.first.hover()
-                    page.wait_for_timeout(random.randint(200, 600))
-                    play_btn.first.click(timeout=5000)
-                    print("▶️ प्ले बटन क्लिक")
+                    play_btn.first.tap()  # टैप का उपयोग करें
+                    print("▶️ प्ले बटन टैप किया")
                 else:
-                    youtube_frame.locator("body").click()
+                    youtube_frame.locator("body").tap()
 
-                # वीडियो चलाने की पुख्ता कोशिश (JS)
+                # वीडियो प्ले होना सुनिश्चित करें
                 time.sleep(2)
                 page.evaluate("""() => {
                     const iframes = document.querySelectorAll('iframe[src*="youtube.com/embed"]');
@@ -188,23 +189,23 @@ def run_machine():
                     }
                 }""")
 
-                # 25 सेकंड पर स्क्रीनशॉट
+                # 30 सेकंड पर स्क्रीनशॉट (ताकि वीडियो चलती दिखे)
                 elapsed = time.time() - start_time
-                if elapsed < 25:
-                    time.sleep(25 - elapsed)
+                if elapsed < 30:
+                    time.sleep(30 - elapsed)
                 send_screenshot_to_telegram(page,
-                    f"🤖 मशीन {MACHINE_ID}\n🔄 लूप: {completed_loops+1}/{LOOP_COUNT}\nIP: clean")
+                    f"🤖 मशीन {MACHINE_ID}\n🔄 लूप: {completed_loops+1}/{LOOP_COUNT}\n📱 मोबाइल व्यू")
 
-                # 31 सेकंड पूरे करें
+                # कुल 60 सेकंड पूरे करें (यूट्यूब व्यू काउंट के लिए)
                 elapsed = time.time() - start_time
-                if elapsed < 31:
-                    time.sleep(31 - elapsed)
+                if elapsed < 60:
+                    time.sleep(60 - elapsed)
 
-                # इस IP ने अच्छा काम किया, इसे लिस्ट से हटाकर अंत में डाल दें (ताकि दोबारा इस्तेमाल हो सके)
+                # अच्छे IP को फिर से उपयोग के लिए वापस डालें
                 available_configs.remove(config_file)
-                available_configs.append(config_file)  # अच्छे IP को रिपीट करने के लिए
+                available_configs.append(config_file)
                 completed_loops += 1
-                print(f"✅ लूप {completed_loops} सफल")
+                print(f"✅ लूप {completed_loops} सफल (60s व्यू)")
 
             except Exception as e:
                 print(f"❌ एरर: {e}")
@@ -212,7 +213,6 @@ def run_machine():
                     send_screenshot_to_telegram(page, f"❌ मशीन {MACHINE_ID} एरर: {str(e)[:80]}")
                 except:
                     pass
-                # एरर आने पर भी IP बदलेंगे
                 blacklist.add(config_file)
                 save_blacklist(blacklist)
                 available_configs.remove(config_file)
