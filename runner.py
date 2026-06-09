@@ -174,8 +174,9 @@ def run_machine():
                 start_time = time.time()
                 page.goto(TARGET_URL, wait_until="domcontentloaded", timeout=60000)
                 only_scroll_and_move(page)
-                # 15 सेकंड इंतज़ार (जैसा आपने कहा)
-                page.wait_for_timeout(15000)
+
+                # 19 सेकंड का इंतज़ार (जैसा आपने कहा)
+                page.wait_for_timeout(19000)
                 only_scroll_and_move(page)
 
                 if page_has_bot_message(page):
@@ -185,17 +186,14 @@ def run_machine():
                     available_configs.remove(config_file)
                     continue
 
-                # ✅ सिर्फ़ एक क्लिक – YouTube के प्ले बटन पर
+                # 🔥 एकमात्र क्लिक – सीधे iframe के सेंटर पर (बिना कोई प्ले बटन खोजे)
                 youtube_frame = page.frame_locator("iframe[src*='youtube.com/embed'], iframe[src*='youtube-nocookie.com/embed']")
-                play_btn = youtube_frame.locator("button.ytp-large-play-button, .ytp-cued-thumbnail-overlay")
-                if play_btn.count() > 0:
-                    play_btn.first.click(timeout=5000)
-                    print("▶️ प्ले बटन क्लिक किया (एकमात्र क्लिक)")
-                else:
-                    print("⚠️ प्ले बटन नहीं मिला – शायद ऑटोप्ले, कोई क्लिक नहीं करेंगे।")
+                # iframe के बॉडी पर क्लिक (इसका सेंटर अपने आप टारगेट होता है)
+                youtube_frame.locator("body").click()
+                print("▶️ 19 सेकंड पर iframe के सेंटर पर क्लिक किया")
 
                 time.sleep(2)
-                unmute_and_quality_natak(page)   # अनम्यूट + क्वालिटी का नाटक
+                unmute_and_quality_natak(page)
                 only_scroll_and_move(page)
 
                 # 55 सेकंड पर स्क्रीनशॉट
@@ -206,7 +204,7 @@ def run_machine():
                     f"🤖 मशीन {MACHINE_ID}\n"
                     f"🔄 लूप: {completed_loops+1}/{LOOP_COUNT}\n"
                     f"🌐 IP: {current_ip}\n"
-                    f"📟 टैबलेट • एक क्लिक"
+                    f"📟 टैबलेट • एक क्लिक (19s)"
                 )
                 send_screenshot_to_telegram(page, caption)
 
@@ -215,7 +213,6 @@ def run_machine():
                 if elapsed < 60:
                     time.sleep(60 - elapsed)
 
-                # अच्छे IP को दोबारा इस्तेमाल के लिए आखिर में डालें
                 available_configs.remove(config_file)
                 available_configs.append(config_file)
                 completed_loops += 1
@@ -232,7 +229,7 @@ def run_machine():
                 available_configs.remove(config_file)
             finally:
                 context.close()
-                time.sleep(5)   # लूप खत्म होने पर 5 सेकंड रुकें
+                time.sleep(5)
 
         browser.close()
         disconnect_vpn()
