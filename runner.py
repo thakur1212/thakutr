@@ -10,13 +10,25 @@ TARGET_URL = sys.argv[1]
 LOOP_COUNT = int(sys.argv[2])
 CHAT_ID = sys.argv[3]
 BOT_TOKEN = sys.argv[4]
-MACHINE_ID = int(sys.argv[5])   # integer
+MACHINE_ID = int(sys.argv[5])
 
-# सभी मौजूद config फ़ाइलें (config_1.ovpn, ... config_N.ovpn)
 VPN_CONFIGS = sorted(
     [f for f in os.listdir() if f.startswith('config_') and f.endswith('.ovpn')],
     key=lambda x: int(x.split('_')[1].split('.')[0])
 )
+
+BLACKLIST_FILE = f"bad_ips_{MACHINE_ID}.txt"   # हर मशीन की अपनी ब्लैकलिस्ट
+
+def load_blacklist():
+    if not os.path.exists(BLACKLIST_FILE):
+        return set()
+    with open(BLACKLIST_FILE) as f:
+        return set(line.strip() for line in f if line.strip())
+
+def save_blacklist(black_set):
+    with open(BLACKLIST_FILE, "w") as f:
+        for item in black_set:
+            f.write(item + "\n")
 
 def send_screenshot_to_telegram(page, text_msg):
     screenshot_path = f"ss_{MACHINE_ID}.png"
@@ -57,7 +69,6 @@ def connect_vpn(config_file):
     return False
 
 def page_has_bot_message(page):
-    """चेक करें कि पेज पर 'not a robot' जैसा कुछ तो नहीं है"""
     try:
         text = page.content().lower()
         if any(x in text for x in ["not a robot", "are you a robot", "sign in to confirm", "you are a bot"]):
@@ -71,20 +82,33 @@ def run_machine():
         print("❌ कोई VPN config फ़ाइल नहीं!")
         return
 
-    total_configs = len(VPN_CONFIGS)
-    print(f"🎰 मशीन {MACHINE_ID} | Total VPNs: {total_configs} | लूप्स: {LOOP_COUNT}")
+    blacklist = load_blacklist()
+    available_configs = [cfg for cfg in VPN_CONFIGS if cfg not in blacklist]
+
+    if not available_configs:
+        print("❌ सभी configs ब्लैकलिस्ट हो चुकी हैं।")
+        return
+
+    # हर मशीन के लिए अलग शफ़ल (ताकि पूरी मशीनें एक साथ एक जैसा IP न लें)
+    random.seed(MACHINE_ID * 100 + int(time.time()))
+    random.shuffle(available_configs)
+
+    total_available = len(available_configs)
+    print(f"🎰 मशीन {MACHINE_ID} | उपलब्ध IPs: {total_available} | लक्ष्य लूप: {LOOP_COUNT}")
 
     with sync_playwright() as p:
         browser = p.firefox.launch(headless=False, args=["--no-sandbox"])
 
         completed_loops = 0
-        attempts = 0
+        attempt = 0
         while completed_loops < LOOP_COUNT:
-            # हर लूप की शुरुआत से पहले VPN बदलें
+            if not available_configs:
+                print("❌ कोई और usable IP नहीं बचा।")
+                break
+
+            # हर बार available_configs में से कोशिश करें
+            config_file = available_configs[attempt % len(available_configs)]
             disconnect_vpn()
-            # मशीन के हिसाब से config इंडेक्स: (MACHINE_ID * 100 + completed_loops) % total_configs
-            config_idx = (MACHINE_ID * 100 + completed_loops) % total_configs
-            config_file = VPN_CONFIGS[config_idx]
             connect_vpn(config_file)
 
             context = browser.new_context(
@@ -97,17 +121,17 @@ def run_machine():
             try:
                 start_time = time.time()
                 page.goto(TARGET_URL, wait_until="domcontentloaded", timeout=60000)
-
-                # 10 सेकंड इंतज़ार (वीडियो प्लेयर तैयार)
                 page.wait_for_timeout(10000)
 
-                # बॉट डिटेक्शन चेक करें
                 if page_has_bot_message(page):
-                    print("🚫 'You are a robot' पेज मिला! लूप स्किप कर रहे हैं और नया IP लेंगे।")
-                    context.close()
-                    continue   # retry नहीं, skipped loop (अगले attempt में नया IP होगा)
+                    print(f"🚫 Bot detection! IP: {config_file} ब्लैकलिस्ट में डाल रहे हैं।")
+                    blacklist.add(config_file)
+                    save_blacklist(blacklist)
+                    available_configs.remove(config_file)
+                    attempt = 0  # अगली बार शुरू से खोजें
+                    continue
 
-                # प्ले बटन खोजें और क्लिक करें
+                # प्ले बटन क्लिक और फोर्स प्ले (Same as before)
                 youtube_frame = page.frame_locator("iframe[src*='youtube.com/embed']")
                 play_btn = youtube_frame.locator("button.ytp-large-play-button, .ytp-cued-thumbnail-overlay")
                 if play_btn.count() > 0:
@@ -118,44 +142,32 @@ def run_machine():
                 else:
                     youtube_frame.locator("body").click()
 
-                # वीडियो चल रही है यह सुनिश्चित करें (JS से check/play)
                 time.sleep(2)
-                playing = page.evaluate("""() => {
+                # Force play via JS
+                page.evaluate("""() => {
                     const iframes = document.querySelectorAll('iframe[src*="youtube.com/embed"]');
                     for (let iframe of iframes) {
                         try {
                             const video = iframe.contentWindow.document.querySelector('video');
-                            if (video && video.currentTime > 0 && !video.paused) return true;
-                        } catch(e) {}
-                    }
-                    return false;
-                }""")
-                if not playing:
-                    page.evaluate("""() => {
-                        const iframes = document.querySelectorAll('iframe[src*="youtube.com/embed"]');
-                        for (let iframe of iframes) {
-                            try {
-                                const video = iframe.contentWindow.document.querySelector('video');
-                                if (video) video.play();
-                            } catch(e) {
-                                iframe.contentWindow.postMessage('{"event":"command","func":"playVideo","args":""}','*');
-                            }
+                            if (video && video.paused) video.play();
+                        } catch(e) {
+                            iframe.contentWindow.postMessage('{"event":"command","func":"playVideo","args":""}','*');
                         }
-                    }""")
+                    }
+                }""")
 
-                # 25 सेकंड पर स्क्रीनशॉट
                 elapsed = time.time() - start_time
                 if elapsed < 25:
                     time.sleep(25 - elapsed)
                 send_screenshot_to_telegram(page,
-                    f"🤖 मशीन {MACHINE_ID}\n🔄 लूप: {completed_loops+1}/{LOOP_COUNT}\n🌐 IP: fresh")
+                    f"🤖 मशीन {MACHINE_ID}\n🔄 लूप: {completed_loops+1}/{LOOP_COUNT}\n🌐 Clean IP")
 
-                # 31 सेकंड पूरे करें
                 elapsed = time.time() - start_time
                 if elapsed < 31:
                     time.sleep(31 - elapsed)
 
                 completed_loops += 1
+                attempt += 1
                 print(f"✅ लूप {completed_loops} पूरा")
 
             except Exception as e:
