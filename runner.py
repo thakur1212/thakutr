@@ -6,7 +6,7 @@ import requests
 import re
 from playwright.sync_api import sync_playwright
 
-TARGET_URL = sys.argv[1]
+TARGET_URL = sys.argv[1]          # अब यह YouTube वीडियो का सीधा URL होगा
 LOOP_COUNT = int(sys.argv[2])
 CHAT_ID = sys.argv[3]
 BOT_TOKEN = sys.argv[4]
@@ -30,7 +30,7 @@ def save_blacklist(black_set):
             f.write(item + "\n")
 
 def send_screenshot_to_telegram(page, text_msg):
-    screenshot_path = f"ss_{MACHINE_ID}.png"
+    screenshot_path = f"ss_{MACHINE_ID}_{random.randint(1000,9999)}.png"
     try:
         page.screenshot(path=screenshot_path, full_page=True)
         url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendPhoto"
@@ -74,19 +74,9 @@ def page_has_bot_message(page):
             return True
     except:
         pass
-    try:
-        frames = page.frames
-        for frame in frames:
-            if frame.url != page.url:
-                ftext = frame.text_content("*")
-                if re.search(r"not a robot|are you a robot|sign in to confirm|you are a bot|robot check", ftext, re.IGNORECASE):
-                    return True
-    except:
-        pass
     return False
 
 def only_scroll_and_move(page):
-    """कोई क्लिक नहीं, सिर्फ़ माउस हिलाना और स्क्रॉल करना"""
     try:
         page.mouse.move(random.randint(100, 700), random.randint(200, 800))
         time.sleep(random.uniform(0.2, 0.5))
@@ -97,36 +87,72 @@ def only_scroll_and_move(page):
     except:
         pass
 
-def unmute_and_quality_natak(page):
-    """YouTube player को अनम्यूट करें और क्वालिटी बदलने का दिखावा करें"""
+def perform_engagement_actions(page):
+    """
+    YouTube.com पर ढेर सारी इंटरैक्शन –
+    सीधे प्लेयर और पेज, दोनों पर काम करेगी
+    """
     try:
-        page.evaluate("""
-            () => {
-                const iframes = document.querySelectorAll('iframe[src*="youtube.com/embed"], iframe[src*="youtube-nocookie.com/embed"]');
-                for (let iframe of iframes) {
-                    try {
-                        iframe.contentWindow.postMessage('{"event":"command","func":"unMute","args":""}','*');
-                        setTimeout(() => {
-                            iframe.contentWindow.postMessage('{"event":"command","func":"setPlaybackQuality","args":"hd720"}','*');
-                        }, 4000);
-                    } catch(e) {}
-                }
-            }
-        """)
-        if random.random() < 0.4:
-            time.sleep(5)
+        # 1. सीक करें (10-40 सेकंड)
+        if random.random() < 0.2:
+            seek_time = random.randint(10, 40)
+            page.evaluate(f"""
+                () => {{
+                    const video = document.querySelector('video');
+                    if (video) {{
+                        video.currentTime = {seek_time};
+                        video.play();
+                    }}
+                }}
+            """)
+            print(f"⏩ {seek_time}s पर सीक किया")
+            time.sleep(random.uniform(1, 2))
+
+        # 2. वॉल्यूम बदलें
+        if random.random() < 0.3:
+            new_vol = random.randint(30, 100)
+            page.evaluate(f"""
+                () => {{
+                    const video = document.querySelector('video');
+                    if (video) video.volume = {new_vol/100};
+                }}
+            """)
+            print(f"🔊 वॉल्यूम {new_vol}%")
+            time.sleep(random.uniform(0.5, 1.5))
+
+        # 3. पॉज़-प्ले
+        if random.random() < 0.25:
             page.evaluate("""
                 () => {
-                    const iframes = document.querySelectorAll('iframe[src*="youtube.com/embed"], iframe[src*="youtube-nocookie.com/embed"]');
-                    for (let iframe of iframes) {
-                        try {
-                            iframe.contentWindow.postMessage('{"event":"command","func":"setPlaybackQuality","args":"large"}','*');
-                        } catch(e) {}
-                    }
+                    const video = document.querySelector('video');
+                    if (video) video.pause();
                 }
             """)
-    except:
-        pass
+            pause_dur = random.uniform(2, 4)
+            time.sleep(pause_dur)
+            page.evaluate("""
+                () => {
+                    const video = document.querySelector('video');
+                    if (video) video.play();
+                }
+            """)
+            print(f"⏸️ {pause_dur:.1f}s पॉज़, फिर प्ले")
+
+        # 4. फ़ुलस्क्रीन टॉगल
+        if random.random() < 0.15:
+            page.keyboard.press("f")
+            time.sleep(random.uniform(3, 5))
+            page.keyboard.press("f")
+            print("🖥️ फ़ुलस्क्रीन टॉगल")
+
+        # 5. पेज पर स्क्रॉल (सुझाई गई वीडियो, कमेंट)
+        page.mouse.wheel(0, 600)
+        time.sleep(random.uniform(1, 2))
+        page.mouse.wheel(0, -400)
+        print("📜 YouTube पेज स्क्रॉल")
+
+    except Exception as e:
+        print(f"⚠️ इंगेजमेंट एरर: {e}")
 
 def run_machine():
     if not VPN_CONFIGS:
@@ -142,27 +168,25 @@ def run_machine():
     random.seed(MACHINE_ID * 1000 + int(time.time()))
     random.shuffle(available_configs)
 
-    print(f"🎰 मशीन {MACHINE_ID} | उपलब्ध IP: {len(available_configs)} | लक्ष्य लूप: {LOOP_COUNT}")
+    print(f"🎰 मशीन {MACHINE_ID} | उपलब्ध IP: {len(available_configs)} | लूप: {LOOP_COUNT}")
 
     with sync_playwright() as p:
         browser = p.firefox.launch(headless=False, args=["--no-sandbox"])
 
-        completed_loops = 0
-        while completed_loops < LOOP_COUNT:
+        completed = 0
+        while completed < LOOP_COUNT:
             if not available_configs:
-                print("❌ कोई और usable IP नहीं।")
+                print("❌ IP खत्म।")
                 break
 
-            config_file = available_configs[0]
+            config_file = available_configs.pop(0)
             disconnect_vpn()
             current_ip = connect_vpn(config_file)
             if current_ip == "Unknown":
                 blacklist.add(config_file)
                 save_blacklist(blacklist)
-                available_configs.remove(config_file)
                 continue
 
-            # टैबलेट सेटिंग्स (iPad)
             context = browser.new_context(
                 viewport={"width": 820, "height": 1180},
                 user_agent="Mozilla/5.0 (iPad; CPU OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1",
@@ -172,51 +196,50 @@ def run_machine():
 
             try:
                 start_time = time.time()
+                # सीधे YouTube वीडियो पर जाएँ
                 page.goto(TARGET_URL, wait_until="domcontentloaded", timeout=60000)
                 only_scroll_and_move(page)
-
-                # 19 सेकंड का इंतज़ार (जैसा आपने कहा)
                 page.wait_for_timeout(19000)
                 only_scroll_and_move(page)
 
                 if page_has_bot_message(page):
-                    print(f"🚫 Bot पेज मिला! IP: {config_file} ब्लैकलिस्ट कर रहे हैं।")
+                    print(f"🚫 Bot पेज! IP: {current_ip} ब्लैकलिस्ट।")
                     blacklist.add(config_file)
                     save_blacklist(blacklist)
-                    available_configs.remove(config_file)
                     continue
 
-                # 🔥 एकमात्र क्लिक – सीधे iframe के सेंटर पर (बिना कोई प्ले बटन खोजे)
-                youtube_frame = page.frame_locator("iframe[src*='youtube.com/embed'], iframe[src*='youtube-nocookie.com/embed']")
-                # iframe के बॉडी पर क्लिक (इसका सेंटर अपने आप टारगेट होता है)
-                youtube_frame.locator("body").click()
-                print("▶️ 19 सेकंड पर iframe के सेंटर पर क्लिक किया")
+                # YouTube पेज पर वीडियो प्लेयर के सेंटर पर क्लिक करें
+                # (प्लेयर आमतौर पर पेज के ऊपरी हिस्से में होता है)
+                page.mouse.click(410, 300)   # टैबलेट व्यू में YouTube प्लेयर का सेंटर
+                print("▶️ 19 सेकंड पर सेंटर क्लिक (YouTube)")
 
                 time.sleep(2)
-                unmute_and_quality_natak(page)
-                only_scroll_and_move(page)
+                perform_engagement_actions(page)
+
+                # 30 सेकंड बाद फिर से कुछ इंटरैक्शन
+                time.sleep(30 - 2)
+                perform_engagement_actions(page)
 
                 # 55 सेकंड पर स्क्रीनशॉट
-                wait_175 = 175 - (time.time() - start_time)
-                if wait_175 > 0:
-                    time.sleep(wait_175)
+                wait_55 = 55 - (time.time() - start_time)
+                if wait_55 > 0:
+                    time.sleep(wait_55)
                 caption = (
                     f"🤖 मशीन {MACHINE_ID}\n"
-                    f"🔄 लूप: {completed_loops+1}/{LOOP_COUNT}\n"
+                    f"🔄 लूप: {completed+1}/{LOOP_COUNT}\n"
                     f"🌐 IP: {current_ip}\n"
-                    f"📟 टैबलेट • एक क्लिक (19s)"
+                    f"📟 YouTube Direct • रीच बूस्ट"
                 )
                 send_screenshot_to_telegram(page, caption)
 
                 # 60 सेकंड पूरे करें
                 elapsed = time.time() - start_time
-                if elapsed < 180:
-                    time.sleep(180 - elapsed)
+                if elapsed < 60:
+                    time.sleep(60 - elapsed)
 
-                available_configs.remove(config_file)
+                completed += 1
+                print(f"✅ लूप {completed} सफल (IP: {current_ip})")
                 available_configs.append(config_file)
-                completed_loops += 1
-                print(f"✅ लूप {completed_loops} सफल (IP: {current_ip})")
 
             except Exception as e:
                 print(f"❌ एरर: {e}")
@@ -226,7 +249,6 @@ def run_machine():
                     pass
                 blacklist.add(config_file)
                 save_blacklist(blacklist)
-                available_configs.remove(config_file)
             finally:
                 context.close()
                 time.sleep(5)
