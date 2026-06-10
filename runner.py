@@ -6,19 +6,22 @@ import requests
 import re
 from playwright.sync_api import sync_playwright
 
-TARGET_URL = sys.argv[1]          # YouTube वीडियो का सीधा URL
+TARGET_URL = sys.argv[1]          # YouTube वीडियो या Shorts का सीधा URL
 TOTAL_VIEWS = int(sys.argv[2])    # प्रति मशीन कुल व्यू
 CHAT_ID = sys.argv[3]
 BOT_TOKEN = sys.argv[4]
 MACHINE_ID = int(sys.argv[5])
 
-TABS_PER_LOOP = 20                # हर लूप में 20 टैब (अधिकतम फ्री स्पीड)
+TABS_PER_LOOP = 20                # हर लूप में 20 टैब
 
 VPN_CONFIGS = sorted(
     [f for f in os.listdir() if f.startswith('config_') and f.endswith('.ovpn')],
     key=lambda x: int(x.split('_')[1].split('.')[0])
 )
 BLACKLIST_FILE = f"bad_ips_{MACHINE_ID}.txt"
+
+# पहचानें कि क्या यह Shorts लिंक है
+IS_SHORTS = "/shorts/" in TARGET_URL
 
 def load_blacklist():
     if not os.path.exists(BLACKLIST_FILE):
@@ -79,66 +82,83 @@ def page_has_bot_message(page):
     return False
 
 def only_scroll_and_move(page):
+    """बिना क्लिक के माउस हिलाएँ और स्क्रॉल करें (Shorts में बहुत ज़्यादा स्क्रॉल न करें, ताकि अगली Short पर न जाएँ)"""
     try:
-        page.mouse.move(random.randint(100, 700), random.randint(200, 800))
-        time.sleep(random.uniform(0.2, 0.5))
-        page.mouse.wheel(0, random.randint(200, 500))
-        time.sleep(random.uniform(0.2, 0.5))
-        page.mouse.wheel(0, -random.randint(100, 300))
-        time.sleep(random.uniform(0.1, 0.3))
+        if IS_SHORTS:
+            # Shorts पेज पर हल्का स्वाइप जैसा मूवमेंट
+            page.mouse.move(random.randint(200, 600), random.randint(400, 800))
+            time.sleep(random.uniform(0.2, 0.4))
+            page.mouse.wheel(0, random.randint(30, 80))   # हल्का स्क्रॉल
+            time.sleep(random.uniform(0.1, 0.3))
+            page.mouse.wheel(0, -random.randint(20, 50))
+        else:
+            page.mouse.move(random.randint(100, 700), random.randint(200, 800))
+            time.sleep(random.uniform(0.2, 0.5))
+            page.mouse.wheel(0, random.randint(200, 500))
+            time.sleep(random.uniform(0.2, 0.5))
+            page.mouse.wheel(0, -random.randint(100, 300))
     except:
         pass
 
 def perform_engagement_actions(page):
+    """Shorts और सामान्य वीडियो के लिए उपयुक्त इन्टरैक्शन"""
     try:
-        if random.random() < 0.2:
-            seek_time = random.randint(10, 40)
-            page.evaluate(f"""
-                () => {{
-                    const video = document.querySelector('video');
-                    if (video) {{ video.currentTime = {seek_time}; video.play(); }}
-                }}
-            """)
-            print(f"⏩ {seek_time}s पर सीक")
+        if IS_SHORTS:
+            # Shorts के लिए हल्की इन्टरैक्शन (अनम्यूट पहले से होता है, या ऑटोप्ले)
+            # वॉल्यूम बदलें
+            if random.random() < 0.4:
+                try:
+                    page.evaluate("""
+                        () => {
+                            const video = document.querySelector('video');
+                            if (video) video.volume = 0.7;
+                        }
+                    """)
+                except:
+                    pass
+            # बिना स्क्रॉल किए पेज पर टच जैसा मूवमेंट
+            page.mouse.move(random.randint(200, 600), random.randint(600, 800))
+            time.sleep(random.uniform(0.1, 0.3))
+        else:
+            # सामान्य वीडियो की तरह ही इन्टरैक्शन
+            if random.random() < 0.2:
+                seek_time = random.randint(10, 40)
+                page.evaluate(f"""
+                    () => {{
+                        const video = document.querySelector('video');
+                        if (video) {{ video.currentTime = {seek_time}; video.play(); }}
+                    }}
+                """)
+                time.sleep(random.uniform(1, 2))
+            if random.random() < 0.3:
+                new_vol = random.randint(30, 100)
+                page.evaluate(f"""
+                    () => {{
+                        const video = document.querySelector('video');
+                        if (video) video.volume = {new_vol/100};
+                    }}
+                """)
+            if random.random() < 0.25:
+                page.evaluate("""
+                    () => {
+                        const video = document.querySelector('video');
+                        if (video) video.pause();
+                    }
+                """)
+                time.sleep(random.uniform(2, 4))
+                page.evaluate("""
+                    () => {
+                        const video = document.querySelector('video');
+                        if (video) video.play();
+                    }
+                """)
+            if random.random() < 0.15:
+                page.keyboard.press("f")
+                time.sleep(random.uniform(3, 5))
+                page.keyboard.press("f")
+            page.mouse.wheel(0, 600)
             time.sleep(random.uniform(1, 2))
-
-        if random.random() < 0.3:
-            new_vol = random.randint(30, 100)
-            page.evaluate(f"""
-                () => {{
-                    const video = document.querySelector('video');
-                    if (video) video.volume = {new_vol/100};
-                }}
-            """)
-            print(f"🔊 वॉल्यूम {new_vol}%")
-
-        if random.random() < 0.25:
-            page.evaluate("""
-                () => {
-                    const video = document.querySelector('video');
-                    if (video) video.pause();
-                }
-            """)
-            time.sleep(random.uniform(2, 4))
-            page.evaluate("""
-                () => {
-                    const video = document.querySelector('video');
-                    if (video) video.play();
-                }
-            """)
-            print("⏸️ पॉज़-प्ले")
-
-        if random.random() < 0.15:
-            page.keyboard.press("f")
-            time.sleep(random.uniform(3, 5))
-            page.keyboard.press("f")
-            print("🖥️ फ़ुलस्क्रीन")
-
-        page.mouse.wheel(0, 600)
-        time.sleep(random.uniform(1, 2))
-        page.mouse.wheel(0, -400)
-        print("📜 स्क्रॉल")
-
+            page.mouse.wheel(0, -400)
     except Exception as e:
         print(f"⚠️ इंगेजमेंट एरर: {e}")
 
@@ -158,7 +178,8 @@ def run_machine():
 
     total_tabs = TOTAL_VIEWS
     completed_tabs = 0
-    print(f"🎰 मशीन {MACHINE_ID} | कुल व्यू: {total_tabs} | प्रति लूप {TABS_PER_LOOP} टैब")
+    video_type = "Shorts" if IS_SHORTS else "Normal"
+    print(f"🎰 मशीन {MACHINE_ID} | {video_type} | कुल व्यू: {total_tabs} | प्रति लूप {TABS_PER_LOOP} टैब")
 
     with sync_playwright() as p:
         browser = p.firefox.launch(headless=False, args=["--no-sandbox"])
@@ -190,7 +211,7 @@ def run_machine():
                     start_time = time.time()
                     page.goto(TARGET_URL, wait_until="domcontentloaded", timeout=60000)
                     only_scroll_and_move(page)
-                    page.wait_for_timeout(19000)
+                    page.wait_for_timeout(19000)   # 19 सेकंड इंतज़ार
                     only_scroll_and_move(page)
 
                     if page_has_bot_message(page):
@@ -199,16 +220,26 @@ def run_machine():
                         save_blacklist(blacklist)
                         continue
 
-                    # सेंटर क्लिक
-                    page.mouse.click(410, 300)
-                    print("▶️ 19 सेकंड पर क्लिक")
+                    # ---------- प्लेयर पर क्लिक ----------
+                    if IS_SHORTS:
+                        # Shorts में प्लेयर सेंटर में होता है, बस अनम्यूट के लिए क्लिक भी कर सकते हैं
+                        # शॉर्ट्स में अक्सर वीडियो ऑटोप्ले होता है, फिर भी एक क्लिक देते हैं
+                        page.mouse.click(410, 600)   # प्लेयर के आसपास
+                        print("▶️ Shorts पर क्लिक")
+                    else:
+                        # सामान्य वीडियो प्लेयर सेंटर पर क्लिक
+                        page.mouse.click(410, 300)
+                        print("▶️ 19 सेकंड पर क्लिक (सामान्य वीडियो)")
 
                     time.sleep(2)
                     perform_engagement_actions(page)
 
-                    time.sleep(30 - 2)
-                    perform_engagement_actions(page)
+                    # 30 सेकंड बाद और इन्टरैक्शन (सामान्य वीडियो के लिए); Shorts में कम समय
+                    if not IS_SHORTS:
+                        time.sleep(30 - 2)
+                        perform_engagement_actions(page)
 
+                    # 55 सेकंड पर स्क्रीनशॉट (दोनों के लिए)
                     wait_55 = 55 - (time.time() - start_time)
                     if wait_55 > 0:
                         time.sleep(wait_55)
@@ -216,10 +247,11 @@ def run_machine():
                         f"🤖 मशीन {MACHINE_ID}\n"
                         f"📊 व्यू: {completed_tabs+1}/{total_tabs}\n"
                         f"🌐 IP: {current_ip}\n"
-                        f"📟 टैबलेट • रीच बूस्ट"
+                        f"📟 {video_type} • रीच बूस्ट"
                     )
                     send_screenshot_to_telegram(page, caption)
 
+                    # 60 सेकंड पूरे करें (Shorts के लिए भी यही रखें, हालाँकि वीडियो छोटी होगी)
                     elapsed = time.time() - start_time
                     if elapsed < 60:
                         time.sleep(60 - elapsed)
@@ -240,7 +272,7 @@ def run_machine():
                     context.close()
                     time.sleep(2)
 
-            # एक लूप के बाद 5 सेकंड रुकें (सारी मशीनें सिंक हों)
+            # एक लूप के बाद 5 सेकंड गैप
             time.sleep(5)
 
         browser.close()
