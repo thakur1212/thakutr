@@ -3,8 +3,12 @@ import base64
 import re
 import random
 import sys
+import os
+import csv
+import io
 from bs4 import BeautifulSoup
 
+# ---------- VPNGate ----------
 def fetch_vpngate():
     configs = []
     url = "https://www.vpngate.net/api/iphone/"
@@ -31,6 +35,7 @@ def fetch_vpngate():
         print(f"⚠️ VPNGate error: {e}")
     return configs
 
+# ---------- VPNBook ----------
 def fetch_vpnbook():
     configs = []
     url = "https://www.vpnbook.com/freevpn"
@@ -52,6 +57,7 @@ def fetch_vpnbook():
         print(f"⚠️ VPNBook error: {e}")
     return configs
 
+# ---------- FreeVPN.se (US Servers) ----------
 def fetch_freevpndb():
     configs = []
     urls = [
@@ -69,6 +75,7 @@ def fetch_freevpndb():
             continue
     return configs
 
+# ---------- ProtonVPN Free Servers (OpenVPN configs) ----------
 def fetch_protonvpn_free():
     configs = []
     proton_servers = [
@@ -88,15 +95,16 @@ def fetch_protonvpn_free():
 
 if __name__ == "__main__":
     all_configs = []
-    print("📥 VPNGate से...")
+    print("📥 VPNGate से configs ला रहे हैं...")
     all_configs.extend(fetch_vpngate())
-    print("📥 VPNBook से...")
+    print("📥 VPNBook से configs ला रहे हैं...")
     all_configs.extend(fetch_vpnbook())
-    print("📥 FreeVPN.se से...")
+    print("📥 FreeVPN.se से US configs ला रहे हैं...")
     all_configs.extend(fetch_freevpndb())
-    print("📥 ProtonVPN फ्री सर्वर...")
+    print("📥 ProtonVPN free servers ला रहे हैं...")
     all_configs.extend(fetch_protonvpn_free())
 
+    # डुप्लिकेट हटाएँ (remote server के आधार पर)
     seen = set()
     unique = []
     for cfg in all_configs:
@@ -109,8 +117,9 @@ if __name__ == "__main__":
             unique.append(cfg)
 
     random.shuffle(unique)
+
     if not unique:
-        print("❌ कोई config नहीं मिली।")
+        print("❌ कोई VPN config नहीं मिली।")
         sys.exit(1)
 
     max_save = min(len(unique), 100)
@@ -118,4 +127,4 @@ if __name__ == "__main__":
         fname = f"config_{i+1}.ovpn"
         with open(fname, "w") as f:
             f.write(unique[i])
-    print(f"✅ {max_save} configs सेव हुईं।")
+    print(f"✅ कुल {max_save} unique configs सेव हुईं।")
