@@ -197,9 +197,9 @@ def run_machine():
                 only_scroll_and_move(page)
 
                 # 55 सेकंड पर स्क्रीनशॉट
-                wait_55 = 55 - (time.time() - start_time)
-                if wait_55 > 0:
-                    time.sleep(wait_55)
+                wait_175 = 175 - (time.time() - start_time)
+                if wait_175 > 0:
+                    time.sleep(wait_175)
                 caption = (
                     f"🤖 मशीन {MACHINE_ID}\n"
                     f"🔄 लूप: {completed_loops+1}/{LOOP_COUNT}\n"
@@ -210,8 +210,8 @@ def run_machine():
 
                 # 60 सेकंड पूरे करें
                 elapsed = time.time() - start_time
-                if elapsed < 60:
-                    time.sleep(60 - elapsed)
+                if elapsed < 180:
+                    time.sleep(180 - elapsed)
 
                 available_configs.remove(config_file)
                 available_configs.append(config_file)
