@@ -60,7 +60,8 @@ def connect_vpn(config_file):
         old_ip = requests.get("https://ifconfig.me", timeout=5).text.strip()
     except:
         pass
-    for i in range(20):
+    # ✅ 30 बार कोशिश (पहले 20 था) → ज़्यादा समय लेकिन भरोसेमंद
+    for i in range(30):
         time.sleep(2)
         try:
             new_ip = requests.get("https://ifconfig.me", timeout=5).text.strip()
@@ -82,13 +83,13 @@ def page_has_bot_message(page):
     return False
 
 def only_scroll_and_move(page):
-    """बिना क्लिक के माउस हिलाएँ और स्क्रॉल करें (Shorts में बहुत ज़्यादा स्क्रॉल न करें, ताकि अगली Short पर न जाएँ)"""
+    """बिना क्लिक के माउस हिलाएँ और स्क्रॉल करें"""
     try:
         if IS_SHORTS:
             # Shorts पेज पर हल्का स्वाइप जैसा मूवमेंट
             page.mouse.move(random.randint(200, 600), random.randint(400, 800))
             time.sleep(random.uniform(0.2, 0.4))
-            page.mouse.wheel(0, random.randint(30, 80))   # हल्का स्क्रॉल
+            page.mouse.wheel(0, random.randint(30, 80))
             time.sleep(random.uniform(0.1, 0.3))
             page.mouse.wheel(0, -random.randint(20, 50))
         else:
@@ -101,11 +102,8 @@ def only_scroll_and_move(page):
         pass
 
 def perform_engagement_actions(page):
-    """Shorts और सामान्य वीडियो के लिए उपयुक्त इन्टरैक्शन"""
     try:
         if IS_SHORTS:
-            # Shorts के लिए हल्की इन्टरैक्शन (अनम्यूट पहले से होता है, या ऑटोप्ले)
-            # वॉल्यूम बदलें
             if random.random() < 0.4:
                 try:
                     page.evaluate("""
@@ -116,11 +114,9 @@ def perform_engagement_actions(page):
                     """)
                 except:
                     pass
-            # बिना स्क्रॉल किए पेज पर टच जैसा मूवमेंट
             page.mouse.move(random.randint(200, 600), random.randint(600, 800))
             time.sleep(random.uniform(0.1, 0.3))
         else:
-            # सामान्य वीडियो की तरह ही इन्टरैक्शन
             if random.random() < 0.2:
                 seek_time = random.randint(10, 40)
                 page.evaluate(f"""
@@ -209,9 +205,10 @@ def run_machine():
 
                 try:
                     start_time = time.time()
+                    # ✅ टाइमआउट 60 सेकंड (पहले 30 था)
                     page.goto(TARGET_URL, wait_until="domcontentloaded", timeout=60000)
                     only_scroll_and_move(page)
-                    page.wait_for_timeout(19000)   # 19 सेकंड इंतज़ार
+                    page.wait_for_timeout(19000)
                     only_scroll_and_move(page)
 
                     if page_has_bot_message(page):
@@ -220,26 +217,21 @@ def run_machine():
                         save_blacklist(blacklist)
                         continue
 
-                    # ---------- प्लेयर पर क्लिक ----------
                     if IS_SHORTS:
-                        # Shorts में प्लेयर सेंटर में होता है, बस अनम्यूट के लिए क्लिक भी कर सकते हैं
-                        # शॉर्ट्स में अक्सर वीडियो ऑटोप्ले होता है, फिर भी एक क्लिक देते हैं
-                        page.mouse.click(410, 600)   # प्लेयर के आसपास
+                        page.mouse.click(410, 600)
                         print("▶️ Shorts पर क्लिक")
                     else:
-                        # सामान्य वीडियो प्लेयर सेंटर पर क्लिक
                         page.mouse.click(410, 300)
                         print("▶️ 19 सेकंड पर क्लिक (सामान्य वीडियो)")
 
                     time.sleep(2)
                     perform_engagement_actions(page)
 
-                    # 30 सेकंड बाद और इन्टरैक्शन (सामान्य वीडियो के लिए); Shorts में कम समय
                     if not IS_SHORTS:
                         time.sleep(30 - 2)
                         perform_engagement_actions(page)
 
-                    # 55 सेकंड पर स्क्रीनशॉट (दोनों के लिए)
+                    # 55 सेकंड पर स्क्रीनशॉट
                     wait_55 = 55 - (time.time() - start_time)
                     if wait_55 > 0:
                         time.sleep(wait_55)
@@ -251,7 +243,7 @@ def run_machine():
                     )
                     send_screenshot_to_telegram(page, caption)
 
-                    # 60 सेकंड पूरे करें (Shorts के लिए भी यही रखें, हालाँकि वीडियो छोटी होगी)
+                    # 60 सेकंड पूरे करें
                     elapsed = time.time() - start_time
                     if elapsed < 60:
                         time.sleep(60 - elapsed)
